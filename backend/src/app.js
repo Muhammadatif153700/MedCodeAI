@@ -59,8 +59,9 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 if (env.NODE_ENV !== 'test') {
   morgan.token('req-id', (req) => req.id || '-');
+  morgan.token('path-only', (req) => (req.originalUrl || req.url || '').split('?')[0]);
   app.use(
-    morgan(':req-id :method :url :status :res[content-length] - :response-time ms')
+    morgan(':req-id :method :path-only :status :res[content-length] - :response-time ms')
   );
 }
 

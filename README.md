@@ -24,12 +24,19 @@ AI-Powered Medical Coding and Claim Validation System
    ```bash
    npm start
    ```
-5. Verify the health endpoint:
-   `GET http://localhost:5000/api/v1/health`
-6. Run automated tests:
+5. Verify endpoints:
+   - Application liveness: `GET http://localhost:5000/api/v1/health`
+   - Database readiness: `GET http://localhost:5000/api/v1/health/db`
+6. Prisma & Neon PostgreSQL commands:
+   ```bash
+   npm run prisma:validate   # Validate prisma/schema.prisma
+   npm run prisma:generate   # Generate Prisma Client
+   npm run db:verify         # Run read-only SELECT 1 check on pooled & direct URLs
+   ```
+7. Run automated tests:
    ```bash
    npm test
    npm run test:coverage
    ```
 
-> **Note:** Database models (Prisma + Neon PostgreSQL), JWT authentication, and audit logging will be implemented in subsequent phases. All medical data used in this project must be synthetic or de-identified.
+> **Note:** Prisma 6 + Neon PostgreSQL connectivity is configured (`KAN-9`). Full database schema models, migrations, JWT authentication, and audit logging will be implemented in subsequent phases. All medical data used in this project must be synthetic or de-identified.

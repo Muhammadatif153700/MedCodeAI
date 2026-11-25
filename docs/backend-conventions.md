@@ -1,6 +1,6 @@
 # MedCodeAI — Backend Conventions & Team Integration Guide
 
-> **Current Status (Phase 1 / KAN-8):** Express 5 application skeleton, environment validation, shared response/error conventions, and health-check endpoint are implemented. **Database models (Prisma + Neon), JWT authentication, RBAC enforcement, and audit logging are NOT implemented yet** and will be added in upcoming KAN-4 phases.
+> **Current Status (Phase 2 / KAN-9):** Express 5 skeleton, Prisma 6 + Neon PostgreSQL configuration, and `/api/v1/health/db` readiness check are implemented. **Database schema models (`KAN-10`), migrations (`KAN-11`), JWT authentication, RBAC enforcement, and audit logging are NOT implemented yet.**
 
 ---
 
@@ -97,6 +97,7 @@ Never commit `.env` or real credentials.
 From inside `backend/src/modules/<module>/`:
 
 - `const { env } = require('../../config/env');`
+- `const { prisma, checkDatabaseHealth, disconnectPrisma } = require('../../config/prisma');`
 - `const HTTP_STATUS = require('../../constants/httpStatus');`
 - `const { ROLES, PENDING_ROLE } = require('../../constants/roles');`
 - `const ApiError = require('../../utils/ApiError');`
@@ -105,6 +106,26 @@ From inside `backend/src/modules/<module>/`:
 - `const validate = require('../../middleware/validate.middleware');`
 
 Confirmed business roles: `ADMIN`, `BILLING_SPECIALIST`, `CODER`, `REVIEWER`. (`PENDING` is a proposed non-privileged registration role/state subject to confirmation during `KAN-12`/`KAN-13`.)
+
+---
+
+## 7. Neon PostgreSQL & Prisma Configuration
+
+- **Shared Prisma Client:** Always import `{ prisma }` from `backend/src/config/prisma.js`. Never instantiate `new PrismaClient()` inside controllers, services, or request handlers.
+- **Pooled vs. Direct Connections:**
+  - `DATABASE_URL` (Neon `-pooler` endpoint with `?sslmode=require`): Used at runtime by `@prisma/client` for application queries via PgBouncer connection pooling.
+  - `DIRECT_URL` (Neon direct non-pooler endpoint with `?sslmode=require`): Used by Prisma CLI (`prisma migrate dev`, `prisma migrate deploy`) to avoid PgBouncer prepared-statement/advisory-lock issues.
+- **Health Endpoints:**
+  - `GET /api/v1/health` — Application liveness (HTTP `200`, independent of database).
+  - `GET /api/v1/health/db` — Database readiness (`SELECT 1` read-only check; HTTP `200` when connected, HTTP `503` `DATABASE_UNAVAILABLE` when unreachable).
+- **Database Branch Isolation:**
+  - `production` branch is protected and must **never** be used for local development, migrations, or tests.
+  - Each developer works against their own Neon development branch (e.g., `ali_dev` in AWS Singapore).
+- **Troubleshooting:**
+  - *`DATABASE_URL is not set`*: Copy `backend/.env.example` to `backend/.env` and add your private Neon URLs.
+  - *`Invalid environment configuration`*: Ensure both `DATABASE_URL` and `DIRECT_URL` start with `postgresql://` or `postgres://` and include `?sslmode=require`.
+  - *Prisma migrate hangs*: Confirm `DIRECT_URL` does **not** contain `-pooler` in its hostname.
+  - *Engine missing error*: Run `npm run prisma:generate` inside `backend/`.
 
 ---
 

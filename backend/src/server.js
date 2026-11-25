@@ -1,6 +1,7 @@
 const http = require('http');
 const app = require('./app');
 const { env } = require('./config/env');
+const { disconnectPrisma } = require('./config/prisma');
 
 const server = http.createServer(app);
 
@@ -10,11 +11,13 @@ server.listen(env.PORT, () => {
 
 function shutdown(signal) {
   console.log(`${signal} received. Shutting down MedCodeAI API gracefully...`);
-  server.close((err) => {
+  server.close(async (err) => {
     if (err) {
       console.error('Error during server shutdown:', err);
+      await disconnectPrisma();
       process.exit(1);
     }
+    await disconnectPrisma();
     process.exit(0);
   });
 
