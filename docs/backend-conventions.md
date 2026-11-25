@@ -1,8 +1,8 @@
 # MedCodeAI — Backend Conventions & Team Integration Guide
 
-> **Current Status (Phase 3 / KAN-10):** Express 5 skeleton, Prisma 6 + Neon PostgreSQL configuration, `/api/v1/health/db`, and the complete 26-table `prisma/schema.prisma` are defined and validated locally. **Database migrations (`KAN-11`), seed data, JWT authentication, RBAC enforcement, and audit logging are NOT executed/implemented yet.**
+> **Current Status (Phase 4 / KAN-11):** Express 5 skeleton, Prisma 6 + Neon PostgreSQL configuration, `/api/v1/health/db`, the 26-table `prisma/schema.prisma`, initial SQL migration (`20261125000000_init`), PostgreSQL integrity constraints, and synthetic seed data are complete on `ali_dev`. **Authentication (`KAN-12`/`KAN-13`), RBAC (`KAN-14`), CRUD APIs (`KAN-15`–`KAN-19`), and Audit Logging (`KAN-20`) are NOT implemented yet.**
 
-See [database-schema.md](./database-schema.md) and [database-contracts.md](./database-contracts.md) for the full schema inventory, enum values, and teammate integration contracts.
+See [team-handover.md](./team-handover.md), [database-schema.md](./database-schema.md), and [database-contracts.md](./database-contracts.md) for setup, schema inventory, enum values, and teammate integration contracts.
 
 ---
 

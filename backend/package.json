@@ -10,7 +10,13 @@
     "test:coverage": "jest --runInBand --coverage",
     "prisma:generate": "npx prisma generate",
     "prisma:validate": "npx prisma validate",
+    "prisma:migrate:status": "npx prisma migrate status",
+    "prisma:migrate:deploy": "npx prisma migrate deploy",
+    "db:seed": "node prisma/seed.js",
     "db:verify": "node scripts/verify-db.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   },
   "keywords": [
     "medcodeai",
@@ -21,6 +27,7 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "6.19.3",
+    "bcryptjs": "2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",

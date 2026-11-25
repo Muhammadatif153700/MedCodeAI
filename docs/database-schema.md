@@ -1,6 +1,6 @@
 # MedCodeAI — Database Schema Documentation (KAN-10)
 
-> **Status (Phase 3):** Schema defined in `backend/prisma/schema.prisma` and validated locally with Prisma `6.19.3`. **No database tables or migrations have been executed yet** (scheduled for Phase 4 / `KAN-11`).
+> **Status (Phase 4):** Schema deployed to Neon `ali_dev` via `backend/prisma/migrations/20261125000000_init/migration.sql` with Prisma `6.19.3` and additional PostgreSQL integrity constraints.
 
 ---
 

@@ -1,6 +1,6 @@
 # MedCodeAI — Database Integration Contracts
 
-> **Status (Phase 3):** Prisma schema is validated and Prisma Client (`v6.19.3`) is generated locally. **Migrations and seed data will be applied in Phase 4 (`KAN-11`).**
+> **Status (Phase 4):** Initial migration (`20261125000000_init`) and synthetic seed data are deployed to `ali_dev` with Prisma Client `v6.19.3`. Teammates should apply committed migrations to their own Neon dev branches via `npm run prisma:migrate:deploy`. See [team-handover.md](./team-handover.md).
 
 ---
 
@@ -86,3 +86,42 @@ const encounter = await prisma.encounter.findUnique({
 * **Schema Owner (`KAN-4`):** Only Ali modifies `schema.prisma` and runs `npx prisma migrate dev` on `ali_dev`.
 * **Teammates (`KAN-5`, `KAN-6`, `KAN-7`):** Pull migrations from `dev` and run `npx prisma migrate deploy` on their own Neon dev branch.
 * **Safety Rules:** Never run migrations or tests against `production`; use strictly synthetic/de-identified data; never commit `.env` or credentials.
+
+---
+
+## 6. Shared Integration Interface Contracts (Implemented vs. Planned)
+
+### Implemented Today
+* **Shared Prisma Client (`backend/src/config/prisma.js`):**
+  `const { prisma, checkDatabaseHealth, disconnectPrisma } = require('../../config/prisma');`
+* **Validation Middleware (`backend/src/middleware/validate.middleware.js`):**
+  `validate({ body, query, params })` using Zod schemas.
+* **Response & Error Utilities (`backend/src/utils/`):**
+  `sendSuccess(res, statusCode, data, meta)`, `new ApiError(statusCode, code, message, details)`, `asyncHandler(fn)`.
+
+### Planned Interfaces (Upcoming KAN-4 Phases — Not Implemented Yet)
+* **Authentication Middleware (`backend/src/middleware/auth.middleware.js` — `KAN-13`):**
+  * Signature: `authenticate(req, res, next)`
+  * Input: `Authorization: Bearer <jwt>` header.
+  * Output: Attaches `req.user` and calls `next()`, or forwards `401 UNAUTHORIZED` (`ApiError`).
+* **`req.user` Structure:**
+  ```js
+  {
+    id: 1,                  // User.id (number)
+    email: 'coder1.demo@medcodeai.local',
+    role: 'CODER',          // 'ADMIN' | 'BILLING_SPECIALIST' | 'CODER' | 'REVIEWER'
+    accountStatus: 'APPROVED'
+  }
+  ```
+* **RBAC Middleware (`backend/src/middleware/rbac.middleware.js` — `KAN-14`):**
+  * Signature: `authorize(...allowedRoles)` (e.g., `authorize(ROLES.CODER, ROLES.ADMIN)`)
+  * Output: Calls `next()` if `req.user.accountStatus === 'APPROVED'` and `allowedRoles.includes(req.user.role)`; otherwise forwards `403 FORBIDDEN`.
+* **Audit Logging Service (`backend/src/modules/audit/audit.service.js` — `KAN-20`):**
+  * Signature: `await AuditService.log({ userId, action, entity, entityId = null, ipAddress = null })`
+  * Output: Persists an `AuditLog` row in PostgreSQL.
+* **Accepted/Edited Coding Suggestion Retrieval (Shared Query Contract):**
+  * Signature: `getApprovedSuggestionsByEncounter(encounterId)`
+  * Query: `prisma.codingSuggestion.findMany({ where: { analysis: { record: { encounterId } }, reviewStatus: { in: ['ACCEPTED', 'EDITED'] } }, include: { icd10: true, cpt: true, hcpcs: true, modifiers: { include: { modifier: true } } } })`
+* **Encounter Access (`backend/src/modules/encounters/encounter.service.js` — `KAN-19`):**
+  * Signature: `await getEncounterById(encounterId)`
+  * Output: Returns `Encounter` with `patient`, `provider`, `payer`, `plan`, or throws `404 ENCOUNTER_NOT_FOUND`.

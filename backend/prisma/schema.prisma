@@ -155,10 +155,11 @@ model Patient {
   name       String
   dob        DateTime    @db.Date
   gender     String
-  memberId   String      @unique @map("member_id")
+  memberId   String      @map("member_id")
   encounters Encounter[]
 
   @@index([name])
+  @@index([memberId])
   @@map("patients")
 }
 
@@ -353,6 +354,7 @@ model InsurancePlan {
   payerRules   PayerRule[]
 
   @@unique([payerId, name])
+  @@unique([id, payerId])
   @@index([payerId])
   @@map("insurance_plans")
 }

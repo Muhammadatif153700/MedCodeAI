@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const {
   PrismaClient,
   AccountApprovalStatus,
@@ -83,5 +85,22 @@ describe('Prisma Schema Contract Verification (Phase 3 / KAN-10)', () => {
     ]);
     expect(Object.values(CodeType)).toEqual(['ICD10', 'CPT', 'HCPCS']);
     expect(Object.values(RiskLevel)).toEqual(['LOW', 'MEDIUM', 'HIGH']);
+  });
+
+  test('Initial SQL migration defines all 26 tables, PostgreSQL constraints, and no DROP statements', () => {
+    const migrationPath = path.resolve(
+      __dirname,
+      '../prisma/migrations/20261125000000_init/migration.sql'
+    );
+    const sql = fs.readFileSync(migrationPath, 'utf8');
+
+    expect(sql).not.toMatch(/\bDROP\s+TABLE\b/i);
+    expect(sql).not.toMatch(/\bTRUNCATE\b/i);
+    expect((sql.match(/CREATE TABLE "/g) || [])).toHaveLength(26);
+    expect(sql).toContain('coding_suggestions_units_positive');
+    expect(sql).toContain('coding_suggestions_code_reference_check');
+    expect(sql).toContain('rate_references_rate_non_negative');
+    expect(sql).toContain('encounters_plan_payer_fkey');
+    expect(sql).toContain('users_approved_requires_role');
   });
 });
