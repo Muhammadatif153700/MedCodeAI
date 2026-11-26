@@ -94,6 +94,11 @@ const encounter = await prisma.encounter.findUnique({
 ### Implemented Today
 * **Shared Prisma Client (`backend/src/config/prisma.js`):**
   `const { prisma, checkDatabaseHealth, disconnectPrisma } = require('../../config/prisma');`
+* **Shared Audit Logging Service (`backend/src/modules/audit/index.js` — `KAN-20`):**
+  `const { AuditService, AUDIT_ACTIONS, AUDIT_ENTITIES } = require('../audit');`
+  * `await AuditService.log({ userId, action, entity, entityId, ipAddress }, { tx, bestEffort })` — Validates inputs with strict Zod schema, supports `prisma.$transaction` via `options.tx`, and propagates failures for critical actions.
+  * `await AuditService.list({ page, limit, userId, action, entity, startDate, endDate })` — Paginated retrieval with safe actor fields (no `passwordHash`).
+  * See [audit-logging.md](./audit-logging.md) for full action constants, transaction patterns, and teammate examples. *(Note: `GET /api/v1/audit-logs` remains unmounted until Phase 6 Auth/RBAC.)*
 * **Validation Middleware (`backend/src/middleware/validate.middleware.js`):**
   `validate({ body, query, params })` using Zod schemas.
 * **Response & Error Utilities (`backend/src/utils/`):**

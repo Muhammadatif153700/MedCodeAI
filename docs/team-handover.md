@@ -1,6 +1,6 @@
 # MedCodeAI — Team Handover & Onboarding Guide (Milestone 1)
 
-> **Current Implementation Status:** Express 5 skeleton (`KAN-8`), Neon PostgreSQL + Prisma 6.19.3 (`KAN-9`), 26-table schema (`KAN-10`), initial SQL migration + PostgreSQL constraints, and idempotent synthetic seed (`KAN-11`) are complete. **Authentication (`KAN-12`/`KAN-13`), RBAC middleware (`KAN-14`), CRUD APIs (`KAN-15`–`KAN-19`), and Audit Logging (`KAN-20`) are NOT implemented yet.**
+> **Current Implementation Status:** Express 5 skeleton (`KAN-8`), Neon PostgreSQL + Prisma 6.19.3 (`KAN-9`), 26-table schema (`KAN-10`), initial SQL migration + PostgreSQL constraints, idempotent synthetic seed (`KAN-11`), and the **Shared Audit Logging Service (`KAN-20`)** are complete. **Authentication (`KAN-12`/`KAN-13`), RBAC middleware (`KAN-14`), and CRUD APIs (`KAN-15`–`KAN-19`) are NOT implemented yet.**
 
 ---
 
