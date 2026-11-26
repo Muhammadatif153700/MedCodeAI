@@ -1,0 +1,515 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================================
+// ENUMS (Derived from MedCodeAI Use Cases & State Machine Diagrams)
+// ============================================================================
+
+enum AccountApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum EncounterStatus {
+  OPEN
+  CODING_IN_PROGRESS
+  VALIDATED
+  CLAIM_SUBMITTED
+  CLOSED
+}
+
+enum MedicalRecordStatus {
+  UPLOADED
+  ANALYZING
+  ANALYZED
+  FAILED
+}
+
+enum AiAnalysisStatus {
+  ANALYZING
+  ANALYZED
+  FAILED
+}
+
+enum CodeType {
+  ICD10
+  CPT
+  HCPCS
+}
+
+enum ReviewStatus {
+  SUGGESTED
+  ACCEPTED
+  EDITED
+  REJECTED
+}
+
+enum ValidationStatus {
+  PASSED
+  WARNING
+  FAILED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ReportStatus {
+  GENERATED
+  EXPORTED
+}
+
+enum ClaimStatus {
+  DRAFT
+  VALIDATED
+  READY
+  SUBMITTED
+  IN_PROCESS
+  PENDING_INFO
+  REJECTED
+  CORRECTED
+  RESUBMITTED
+  ACCEPTED
+  PAID
+  DENIED
+  APPEALED
+  CLOSED
+}
+
+enum ChatSender {
+  USER
+  ASSISTANT
+}
+
+// ============================================================================
+// MODULE 1: USERS & ACCESS (3 tables)
+// ============================================================================
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  roleId       Int?     @map("role_id") // Nullable until Admin assigns a business role (UC-05)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Proposed engineering additions (KAN-10):
+  isActive      Boolean               @default(true) @map("is_active")
+  accountStatus AccountApprovalStatus @default(PENDING) @map("account_status")
+
+  role                Role?              @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  auditLogs           AuditLog[]
+  uploadedRecords     MedicalRecord[]    @relation("UploadedRecords")
+  aiAnalyses          AiAnalysis[]       @relation("RunAnalyses")
+  reviewedSuggestions CodingSuggestion[] @relation("ReviewedSuggestions")
+  generatedReports    Report[]           @relation("GeneratedReports")
+  submittedClaims     Claim[]            @relation("SubmittedClaims")
+  chatSessions        ChatSession[]
+
+  @@index([roleId])
+  @@index([accountStatus])
+  @@map("users")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  action    String
+  entity    String
+  entityId  Int?     @map("entity_id")
+  ipAddress String?  @map("ip_address")
+  timestamp DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// MODULE 2: PATIENTS & ENCOUNTERS (4 tables)
+// ============================================================================
+
+model Patient {
+  id         Int         @id @default(autoincrement())
+  name       String
+  dob        DateTime    @db.Date
+  gender     String
+  memberId   String      @map("member_id")
+  encounters Encounter[]
+
+  @@index([name])
+  @@index([memberId])
+  @@map("patients")
+}
+
+model Provider {
+  id         Int         @id @default(autoincrement())
+  name       String
+  npi        String      @unique
+  specialty  String
+  encounters Encounter[]
+
+  @@index([name])
+  @@map("providers")
+}
+
+model Encounter {
+  id             Int             @id @default(autoincrement())
+  patientId      Int             @map("patient_id")
+  providerId     Int             @map("provider_id")
+  payerId        Int             @map("payer_id")
+  planId         Int             @map("plan_id")
+  encounterDate  DateTime        @map("encounter_date") @db.Date
+  placeOfService String          @map("place_of_service")
+  status         EncounterStatus @default(OPEN)
+
+  patient           Patient            @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  provider          Provider           @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  payer             Payer              @relation(fields: [payerId], references: [id], onDelete: Restrict)
+  plan              InsurancePlan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  medicalRecords    MedicalRecord[]
+  validationResults ValidationResult[]
+  denialRisks       DenialRisk[]
+  reports           Report[]
+  claims            Claim[]
+
+  @@index([patientId])
+  @@index([providerId])
+  @@index([payerId])
+  @@index([planId])
+  @@index([encounterDate])
+  @@index([status])
+  @@map("encounters")
+}
+
+model MedicalRecord {
+  id          Int                 @id @default(autoincrement())
+  encounterId Int                 @map("encounter_id")
+  uploadedBy  Int                 @map("uploaded_by")
+  filePath    String              @map("file_path")
+  fileType    String              @map("file_type")
+  status      MedicalRecordStatus @default(UPLOADED)
+
+  // Proposed engineering addition (KAN-10):
+  createdAt DateTime @default(now()) @map("created_at")
+
+  encounter  Encounter    @relation(fields: [encounterId], references: [id], onDelete: Restrict)
+  uploader   User         @relation("UploadedRecords", fields: [uploadedBy], references: [id], onDelete: Restrict)
+  aiAnalyses AiAnalysis[]
+
+  @@index([encounterId])
+  @@index([uploadedBy])
+  @@index([status])
+  @@map("medical_records")
+}
+
+// ============================================================================
+// MODULE 3: AI & CODING (3 tables)
+// ============================================================================
+
+model AiAnalysis {
+  id            Int              @id @default(autoincrement())
+  recordId      Int              @map("record_id")
+  runBy         Int              @map("run_by")
+  extractedJson Json             @map("extracted_json")
+  modelName     String           @map("model_name")
+  status        AiAnalysisStatus @default(ANALYZING)
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  record            MedicalRecord      @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  runner            User               @relation("RunAnalyses", fields: [runBy], references: [id], onDelete: Restrict)
+  codingSuggestions CodingSuggestion[]
+
+  @@index([recordId])
+  @@index([runBy])
+  @@map("ai_analyses")
+}
+
+model CodingSuggestion {
+  id             Int          @id @default(autoincrement())
+  analysisId     Int          @map("analysis_id")
+  codeType       CodeType     @map("code_type")
+  icd10Code      String?      @map("icd10_code")
+  cptCode        String?      @map("cpt_code")
+  hcpcsCode      String?      @map("hcpcs_code")
+  description    String
+  supportingText String       @map("supporting_text")
+  reason         String
+  units          Int          @default(1)
+  reviewStatus   ReviewStatus @default(SUGGESTED) @map("review_status")
+  reviewedBy     Int?         @map("reviewed_by")
+
+  // Proposed engineering addition (KAN-10):
+  reviewComment String? @map("review_comment")
+
+  analysis  AiAnalysis           @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  icd10     Icd10Code?           @relation(fields: [icd10Code], references: [code], onDelete: Restrict)
+  cpt       CptCode?             @relation(fields: [cptCode], references: [code], onDelete: Restrict)
+  hcpcs     HcpcsCode?           @relation(fields: [hcpcsCode], references: [code], onDelete: Restrict)
+  reviewer  User?                @relation("ReviewedSuggestions", fields: [reviewedBy], references: [id], onDelete: Restrict)
+  modifiers SuggestionModifier[]
+
+  @@index([analysisId])
+  @@index([reviewStatus])
+  @@index([icd10Code])
+  @@index([cptCode])
+  @@index([hcpcsCode])
+  @@map("coding_suggestions")
+}
+
+model SuggestionModifier {
+  id           Int          @id @default(autoincrement())
+  suggestionId Int          @map("suggestion_id")
+  modifierCode String       @map("modifier_code")
+  reviewStatus ReviewStatus @default(SUGGESTED) @map("review_status")
+
+  suggestion CodingSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  modifier   Modifier         @relation(fields: [modifierCode], references: [code], onDelete: Restrict)
+
+  @@index([suggestionId])
+  @@index([modifierCode])
+  @@map("suggestion_modifiers")
+}
+
+// ============================================================================
+// MODULE 4: CODE LIBRARIES (4 tables)
+// ============================================================================
+
+model Icd10Code {
+  code        String             @id
+  description String
+  suggestions CodingSuggestion[]
+
+  @@map("icd10_codes")
+}
+
+model CptCode {
+  code        String             @id
+  description String
+  suggestions CodingSuggestion[]
+
+  @@map("cpt_codes")
+}
+
+model HcpcsCode {
+  code        String             @id
+  description String
+  suggestions CodingSuggestion[]
+
+  @@map("hcpcs_codes")
+}
+
+model Modifier {
+  code                String               @id
+  description         String
+  suggestionModifiers SuggestionModifier[]
+
+  @@map("modifiers")
+}
+
+// ============================================================================
+// MODULE 5: PAYERS & RULES (5 tables)
+// ============================================================================
+
+model Payer {
+  id             Int             @id @default(autoincrement())
+  name           String          @unique
+  contact        String?
+  insurancePlans InsurancePlan[]
+  encounters     Encounter[]
+  payerRules     PayerRule[]
+  rateReferences RateReference[]
+
+  @@map("payers")
+}
+
+model InsurancePlan {
+  id           Int         @id @default(autoincrement())
+  payerId      Int         @map("payer_id")
+  name         String
+  authRequired Boolean     @default(false) @map("auth_required")
+  payer        Payer       @relation(fields: [payerId], references: [id], onDelete: Restrict)
+  encounters   Encounter[]
+  payerRules   PayerRule[]
+
+  @@unique([payerId, name])
+  @@unique([id, payerId])
+  @@index([payerId])
+  @@map("insurance_plans")
+}
+
+model PayerRule {
+  id            Int      @id @default(autoincrement())
+  payerId       Int      @map("payer_id")
+  planId        Int?     @map("plan_id") // Optional: rule may target payer-wide or specific plan (UC-17)
+  ruleType      String   @map("rule_type")
+  ruleJson      Json     @map("rule_json")
+  effectiveDate DateTime @map("effective_date") @db.Date
+
+  payer Payer          @relation(fields: [payerId], references: [id], onDelete: Restrict)
+  plan  InsurancePlan? @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([payerId])
+  @@index([planId])
+  @@index([ruleType])
+  @@map("payer_rules")
+}
+
+model RateReference {
+  id             Int      @id @default(autoincrement())
+  payerId        Int      @map("payer_id")
+  code           String
+  placeOfService String   @map("place_of_service")
+  geoArea        String   @map("geo_area")
+  rate           Decimal  @db.Decimal(10, 2)
+  effectiveDate  DateTime @map("effective_date") @db.Date
+
+  payer Payer @relation(fields: [payerId], references: [id], onDelete: Restrict)
+
+  @@index([payerId, code, placeOfService, geoArea])
+  @@index([effectiveDate])
+  @@map("rate_references")
+}
+
+// Standalone reference table without foreign keys per ERD Section 3.3
+model ClaimEditRule {
+  id       Int    @id @default(autoincrement())
+  ruleType String @map("rule_type")
+  codeA    String @map("code_a")
+  codeB    String @map("code_b")
+  action   String
+
+  @@index([codeA, codeB])
+  @@map("claim_edit_rules")
+}
+
+// ============================================================================
+// MODULE 6: VALIDATION, REPORTS & CLAIMS (5 tables)
+// ============================================================================
+
+model ValidationResult {
+  id           Int              @id @default(autoincrement())
+  encounterId  Int              @map("encounter_id")
+  ruleType     String           @map("rule_type")
+  status       ValidationStatus
+  message      String
+  modelVersion String?          @map("model_version")
+
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Restrict)
+
+  @@index([encounterId])
+  @@index([status])
+  @@map("validation_results")
+}
+
+model DenialRisk {
+  id                Int       @id @default(autoincrement())
+  encounterId       Int       @map("encounter_id")
+  issue             String
+  riskLevel         RiskLevel @map("risk_level")
+  recommendedAction String    @map("recommended_action")
+
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Restrict)
+
+  @@index([encounterId])
+  @@index([riskLevel])
+  @@map("denial_risks")
+}
+
+model Report {
+  id          Int          @id @default(autoincrement())
+  encounterId Int          @map("encounter_id")
+  generatedBy Int          @map("generated_by")
+  contentJson Json         @map("content_json")
+  status      ReportStatus @default(GENERATED)
+
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Restrict)
+  generator User      @relation("GeneratedReports", fields: [generatedBy], references: [id], onDelete: Restrict)
+
+  @@index([encounterId])
+  @@index([generatedBy])
+  @@map("reports")
+}
+
+model Claim {
+  id           Int         @id @default(autoincrement())
+  encounterId  Int         @map("encounter_id")
+  submittedBy  Int?        @map("submitted_by") // Nullable while Draft/Validated/Ready
+  formDataJson Json        @map("form_data_json")
+  status       ClaimStatus @default(DRAFT)
+  submittedAt  DateTime?   @map("submitted_at")
+  externalRef  String?     @map("external_ref")
+
+  encounter     Encounter            @relation(fields: [encounterId], references: [id], onDelete: Restrict)
+  submitter     User?                @relation("SubmittedClaims", fields: [submittedBy], references: [id], onDelete: Restrict)
+  statusHistory ClaimStatusHistory[]
+
+  @@index([encounterId])
+  @@index([submittedBy])
+  @@index([status])
+  @@map("claims")
+}
+
+model ClaimStatusHistory {
+  id           Int         @id @default(autoincrement())
+  claimId      Int         @map("claim_id")
+  status       ClaimStatus
+  note         String?
+  followUpDate DateTime?   @map("follow_up_date") @db.Date
+  changedAt    DateTime    @default(now()) @map("changed_at")
+
+  claim Claim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([claimId])
+  @@index([changedAt])
+  @@map("claim_status_history")
+}
+
+// ============================================================================
+// MODULE 7: CHATBOT (2 tables)
+// ============================================================================
+
+model ChatSession {
+  id        Int           @id @default(autoincrement())
+  userId    Int           @map("user_id")
+  createdAt DateTime      @default(now()) @map("created_at")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  messages  ChatMessage[]
+
+  @@index([userId])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        Int        @id @default(autoincrement())
+  sessionId Int        @map("session_id")
+  sender    ChatSender
+  content   String
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("chat_messages")
+}

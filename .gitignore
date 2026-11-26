@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+
+# Uploaded medical records
+uploads/
+backend/uploads/
+
+# Build and generated local artifacts
+dist/
+build/
+.next/
+out/
+
+# Private reference documents
+*.pdf
+private/
