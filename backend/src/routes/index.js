@@ -5,6 +5,10 @@ const { sendSuccess } = require('../utils/ApiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const { checkDatabaseHealth } = require('../config/prisma');
 
+// Your new KAN-6 Routes
+const payersRoutes = require('../modules/payers/payers.routes');
+const validationRoutes = require('../modules/validation/validation.routes');
+
 const router = express.Router();
 
 /**
@@ -42,5 +46,11 @@ router.get(
     }
   })
 );
+
+// ============================================================================
+// YOUR KAN-6 ROUTES
+// ============================================================================
+router.use('/payers', payersRoutes);
+router.use('/validation', validationRoutes);
 
 module.exports = router;
