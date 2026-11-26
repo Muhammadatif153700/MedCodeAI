@@ -42,4 +42,4 @@ AI-Powered Medical Coding and Claim Validation System
    npm run test:coverage
    ```
 
-> **Note:** Phase 4 (`KAN-11`) is complete—the 26-table schema, PostgreSQL integrity constraints, and synthetic seed data are deployed to `ali_dev`. See [docs/team-handover.md](./docs/team-handover.md) for teammate setup. JWT authentication, RBAC middleware, CRUD APIs, and audit logging will be implemented in subsequent phases. All medical data used in this project must be synthetic or de-identified.
+> **Note:** Phase 6 (`KAN-12`–`KAN-14`) is complete—Registration, JWT Authentication, RBAC middleware, and Admin-only Audit Log retrieval are active alongside the 26-table schema on `ali_dev`. See [docs/authentication-rbac.md](./docs/authentication-rbac.md) and [docs/team-handover.md](./docs/team-handover.md). User/Profile and Core CRUD APIs (`KAN-15`–`KAN-19`) will be implemented next. All medical data used in this project must be synthetic or de-identified.

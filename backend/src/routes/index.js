@@ -1,11 +1,14 @@
 const express = require('express');
 const HTTP_STATUS = require('../constants/httpStatus');
+const { ROLES } = require('../constants/roles');
 const ApiError = require('../utils/ApiError');
 const { sendSuccess } = require('../utils/ApiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const { checkDatabaseHealth } = require('../config/prisma');
-
-// Your new KAN-6 Routes
+const { authenticate } = require('../middleware/auth.middleware');
+const { authorize } = require('../middleware/rbac.middleware');
+const authRoutes = require('../modules/auth/auth.routes');
+const { auditController } = require('../modules/audit');
 const payersRoutes = require('../modules/payers/payers.routes');
 const validationRoutes = require('../modules/validation/validation.routes');
 
@@ -29,10 +32,10 @@ router.get('/health', (_req, res) => {
  */
 router.get(
   '/health/db',
-  asyncHandler(async (_req, _res, next) => {
+  asyncHandler(async (_req, res, next) => {
     try {
       await checkDatabaseHealth();
-      return sendSuccess(_res, HTTP_STATUS.OK, {
+      return sendSuccess(res, HTTP_STATUS.OK, {
         database: 'connected',
       });
     } catch (_err) {
@@ -47,9 +50,24 @@ router.get(
   })
 );
 
-// ============================================================================
-// YOUR KAN-6 ROUTES
-// ============================================================================
+/**
+ * Authentication routes (KAN-12, KAN-13)
+ */
+router.use('/auth', authRoutes);
+
+/**
+ * Administrator-only Audit Log retrieval (FR-29 / UC-29 / KAN-20)
+ */
+router.get(
+  '/audit-logs',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  auditController.listAuditLogs
+);
+
+/**
+ * Payers & Validation routes (KAN-6)
+ */
 router.use('/payers', payersRoutes);
 router.use('/validation', validationRoutes);
 

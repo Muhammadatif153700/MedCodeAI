@@ -17,6 +17,9 @@ describe('Environment Configuration Validation (Phase 1 & Phase 2)', () => {
       NODE_ENV: 'production',
       PORT: '8080',
       CORS_ORIGINS: 'https://app.medcode.ai, http://localhost:3000',
+      DATABASE_URL:
+        'postgresql://user:pass@ep-prod-pooler.ap-southeast-1.aws.neon.tech/medcodeai?sslmode=require',
+      JWT_SECRET: 'production-jwt-secret-at-least-32-characters-long',
     });
 
     expect(parsed.NODE_ENV).toBe('production');
@@ -25,6 +28,12 @@ describe('Environment Configuration Validation (Phase 1 & Phase 2)', () => {
       'https://app.medcode.ai',
       'http://localhost:3000',
     ]);
+  });
+
+  test('Fails safely in production when JWT_SECRET or DATABASE_URL is missing', () => {
+    expect(() => validateEnv({ NODE_ENV: 'production' })).toThrow(
+      /JWT_SECRET must be at least 32 characters in production/
+    );
   });
 
   test('Rejects invalid NODE_ENV or PORT', () => {
