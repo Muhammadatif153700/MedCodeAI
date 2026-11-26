@@ -1,0 +1,45 @@
+{
+  "name": "medcodeai-backend",
+  "version": "1.0.0",
+  "description": "MedCodeAI - AI-Powered Medical Coding and Claim Validation System (Backend API)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "jest --runInBand",
+    "test:coverage": "jest --runInBand --coverage",
+    "prisma:generate": "npx prisma generate",
+    "prisma:validate": "npx prisma validate",
+    "prisma:migrate:status": "npx prisma migrate status",
+    "prisma:migrate:deploy": "npx prisma migrate deploy",
+    "db:seed": "node prisma/seed.js",
+    "db:verify": "node scripts/verify-db.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "keywords": [
+    "medcodeai",
+    "medical-coding",
+    "express",
+    "healthcare"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "bcryptjs": "2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.9",
+    "prisma": "6.19.3",
+    "supertest": "^7.1.0"
+  }
+}
