@@ -9,6 +9,8 @@ const { authenticate } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/rbac.middleware');
 const authRoutes = require('../modules/auth/auth.routes');
 const { auditController } = require('../modules/audit');
+const payersRoutes = require('../modules/payers/payers.routes');
+const validationRoutes = require('../modules/validation/validation.routes');
 
 const router = express.Router();
 
@@ -26,6 +28,7 @@ router.get('/health', (_req, res) => {
 /**
  * GET /api/v1/health/db
  * Database readiness check using a non-destructive read-only query.
+ * Never exposes hostnames, credentials, or internal SQL errors.
  */
 router.get(
   '/health/db',
@@ -61,5 +64,11 @@ router.get(
   authorize(ROLES.ADMIN),
   auditController.listAuditLogs
 );
+
+/**
+ * Payers & Validation routes (KAN-6)
+ */
+router.use('/payers', payersRoutes);
+router.use('/validation', validationRoutes);
 
 module.exports = router;
