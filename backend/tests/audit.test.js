@@ -221,9 +221,9 @@ describe('Shared Audit Logging Module (Phase 5 / KAN-20)', () => {
     });
   });
 
-  test('16. No unauthenticated audit retrieval route is exposed before Phase 6 RBAC', async () => {
+  test('16. Audit retrieval route requires authentication (returns 401 when unauthenticated)', async () => {
     const res = await request(app).get('/api/v1/audit-logs');
-    expect(res.status).toBe(404);
-    expect(res.body.error.code).toBe('ROUTE_NOT_FOUND');
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('AUTHENTICATION_REQUIRED');
   });
 });

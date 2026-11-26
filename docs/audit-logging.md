@@ -1,6 +1,6 @@
 # MedCodeAI — Shared Audit Logging Guide (KAN-20)
 
-> **Status (Phase 5):** `AuditService`, `AUDIT_ACTIONS`, `AUDIT_ENTITIES`, input validation, and internal retrieval (`AuditService.list`) are implemented. **The Administrator-only HTTP endpoint `GET /api/v1/audit-logs` (`auditController.listAuditLogs`) is prepared but NOT mounted yet**—it will be activated only after Phase 6 (`KAN-13`/`KAN-14`) authentication and RBAC middleware are active.
+> **Status (Phase 6):** `AuditService`, `AUDIT_ACTIONS`, `AUDIT_ENTITIES`, and the Administrator-only endpoint `GET /api/v1/audit-logs` (protected by `authenticate` + `authorize(ROLES.ADMIN)`) are active.
 
 ---
 

@@ -94,34 +94,22 @@ const encounter = await prisma.encounter.findUnique({
 ### Implemented Today
 * **Shared Prisma Client (`backend/src/config/prisma.js`):**
   `const { prisma, checkDatabaseHealth, disconnectPrisma } = require('../../config/prisma');`
+* **Authentication & RBAC Middleware (`KAN-13`, `KAN-14`):**
+  * `const { authenticate } = require('../../middleware/auth.middleware');` — Verifies Bearer `HS256` JWT, reloads active/approved user & role from PostgreSQL (fail-closed), attaches `req.user = { id, name, email, roleId, role, accountStatus }`.
+  * `const { authorize } = require('../../middleware/rbac.middleware');` — Deny-by-default role check (`authorize(ROLES.CODER, ROLES.ADMIN)`).
+  * See [authentication-rbac.md](./authentication-rbac.md) for endpoints, `req.user`, role matrix, and teammate examples.
 * **Shared Audit Logging Service (`backend/src/modules/audit/index.js` — `KAN-20`):**
   `const { AuditService, AUDIT_ACTIONS, AUDIT_ENTITIES } = require('../audit');`
-  * `await AuditService.log({ userId, action, entity, entityId, ipAddress }, { tx, bestEffort })` — Validates inputs with strict Zod schema, supports `prisma.$transaction` via `options.tx`, and propagates failures for critical actions.
-  * `await AuditService.list({ page, limit, userId, action, entity, startDate, endDate })` — Paginated retrieval with safe actor fields (no `passwordHash`).
-  * See [audit-logging.md](./audit-logging.md) for full action constants, transaction patterns, and teammate examples. *(Note: `GET /api/v1/audit-logs` remains unmounted until Phase 6 Auth/RBAC.)*
+  * `await AuditService.log({ userId, action, entity, entityId, ipAddress }, { tx, bestEffort })` — Validates inputs with strict Zod schema, supports `prisma.$transaction` via `options.tx`, and propagates failures inside transactions and for critical actions.
+  * `await AuditService.list({ page, limit, userId, action, entity, startDate, endDate })` — Paginated retrieval exposed at `GET /api/v1/audit-logs` (`ADMIN` only).
 * **Validation Middleware (`backend/src/middleware/validate.middleware.js`):**
   `validate({ body, query, params })` using Zod schemas.
 * **Response & Error Utilities (`backend/src/utils/`):**
   `sendSuccess(res, statusCode, data, meta)`, `new ApiError(statusCode, code, message, details)`, `asyncHandler(fn)`.
 
 ### Planned Interfaces (Upcoming KAN-4 Phases — Not Implemented Yet)
-* **Authentication Middleware (`backend/src/middleware/auth.middleware.js` — `KAN-13`):**
-  * Signature: `authenticate(req, res, next)`
-  * Input: `Authorization: Bearer <jwt>` header.
-  * Output: Attaches `req.user` and calls `next()`, or forwards `401 UNAUTHORIZED` (`ApiError`).
-* **`req.user` Structure:**
-  ```js
-  {
-    id: 1,                  // User.id (number)
-    email: 'coder1.demo@medcodeai.local',
-    role: 'CODER',          // 'ADMIN' | 'BILLING_SPECIALIST' | 'CODER' | 'REVIEWER'
-    accountStatus: 'APPROVED'
-  }
-  ```
-* **RBAC Middleware (`backend/src/middleware/rbac.middleware.js` — `KAN-14`):**
-  * Signature: `authorize(...allowedRoles)` (e.g., `authorize(ROLES.CODER, ROLES.ADMIN)`)
-  * Output: Calls `next()` if `req.user.accountStatus === 'APPROVED'` and `allowedRoles.includes(req.user.role)`; otherwise forwards `403 FORBIDDEN`.
-* **Audit Logging Service (`backend/src/modules/audit/audit.service.js` — `KAN-20`):**
+* **User Management & Profile (`KAN-15`, `KAN-16`)** and **Patients / Providers / Encounters CRUD (`KAN-17`–`KAN-19`)**.
+* **Audit Logging Service (`backend/src/modules/audit/audit.service.js` — `KAN-20`):** *(Implemented above)*
   * Signature: `await AuditService.log({ userId, action, entity, entityId = null, ipAddress = null })`
   * Output: Persists an `AuditLog` row in PostgreSQL.
 * **Accepted/Edited Coding Suggestion Retrieval (Shared Query Contract):**

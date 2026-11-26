@@ -38,7 +38,9 @@ class AuditService {
     try {
       return await auditRepository.createAuditLog(parsed.data, dbClient);
     } catch (_err) {
-      if (options.bestEffort === true && !isCritical) {
+      // Inside a PostgreSQL transaction (options.tx), any failed SQL statement aborts
+      // the transaction block; errors must always propagate rather than being swallowed.
+      if (!options.tx && options.bestEffort === true && !isCritical) {
         return null;
       }
       throw new ApiError(
