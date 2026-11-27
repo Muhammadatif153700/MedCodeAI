@@ -51,5 +51,5 @@
 
 ## 4. Remaining Limitations & Teammate Review Items
 - **Real Python ML Service:** Not executed against a live Python ML server (`ML_API_URL` is tested with mocked `axios` responses; real ML verification requires Atif's running ML service).
-- **Validation History / Freshness:** Existing `ValidationResult` rows are preserved append-only (no schema change or silent deletion). If revalidation must supersede prior `FAILED` rows, `KAN-6` and `KAN-4` must agree on either a `runId`/`createdAt` migration or explicit replacement policy.
-- **Dependencies:** Runtime `zod` (`3.25.76`) & `prisma` (`6.19.3`) major upgrades and dev-only `newman` advisories remain documented separately.
+- **Validation History / Freshness:** Existing `ValidationResult` rows are preserved append-only (no schema change or silent deletion). `validation.routes.js` now verifies a pre-ML coding snapshot (`409 CONCURRENT_MODIFICATION` if coding changes mid-flight). See [validation-freshness-review.md](./validation-freshness-review.md) and [kan6-api-contract.md](./kan6-api-contract.md).
+- **Dependencies:** Runtime `zod` (`3.25.76`) & `prisma` (`6.19.3`) major upgrades and dev-only `newman` advisories remain documented in [dependency-security-remediation.md](./dependency-security-remediation.md).

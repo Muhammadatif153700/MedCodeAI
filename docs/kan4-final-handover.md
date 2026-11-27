@@ -1,7 +1,7 @@
 # MedCodeAI — Final KAN-4 Backend Handover (`Milestone 3`)
 
-> **Branch:** `feature/kan-4-backend` (pre-merge KAN-4 backup: `backup/kan-4-pre-milestone3-merge` @ `c97ee01d000b9e3b52effc450f2bf28dc1a5742a`; merged with `origin/dev` `d59e986` @ `25b81bfa3e787b5510bf21709fafe49ab64dee4e`).
-> **Critical Blocker Before `dev` Merge / Deployment:** `origin/dev` (`KAN-6` commits `1756fd4`, `d59e986`) introduced startup-breaking `authorize([ROLES...])` array calls and non-destructured `prisma`/`env` imports in `payers/` and `validation/`. See Section 7 below.
+> **Branch:** `feature/kan-4-backend` (pre-merge KAN-4 backup: `backup/kan-4-pre-milestone3-merge` @ `c97ee01d000b9e3b52effc450f2bf28dc1a5742a`; merged with `origin/dev` `d59e986` @ `25b81bfa3e787b5510bf21709fafe49ab64dee4e`; Part 2A checkpoint: `3c69006`).
+> **Status:** `KAN-4` implementation complete; `KAN-6` compatibility repaired on `feature/kan-4-backend`; **NOT approved for production deployment** until remaining blockers in Section 6 are resolved.
 
 ---
 
@@ -26,7 +26,8 @@ All 13 `KAN-4` subtasks are **implemented, security-hardened, and verified** on 
 ## 2. API Inventory, Role Matrix & Shared Imports
 - **OpenAPI 3.0.3 (`32` KAN-4 operations):** `backend/docs/openapi.yaml` (`npm --prefix backend run docs:validate`).
 - **Swagger UI (non-production only):** `GET /api-docs` and `GET /api-docs/openapi.json` (hard-disabled in `NODE_ENV=production`).
-- **Quick Reference & Role Matrix:** [kan4-api-quick-reference.md](./kan4-api-quick-reference.md).
+- **Quick Reference & Role Matrix:** [kan4-api-quick-reference.md](./kan4-api-quick-reference.md) (`32` KAN-4 operations) and [kan6-api-contract.md](./kan6-api-contract.md) (`11` KAN-6 operations; `43` total mounted `/api/v1` operations).
+- **Security & Freshness Reviews:** [dependency-security-remediation.md](./dependency-security-remediation.md), [validation-freshness-review.md](./validation-freshness-review.md).
 - **Shared Imports (Exact):**
   - `const { prisma } = require('../../config/prisma');`
   - `const { env } = require('../../config/env');`
@@ -59,3 +60,14 @@ All 5 `KAN-6` compatibility defects introduced by `origin/dev` (`1756fd4`, `d59e
 4. `payers.controller.js` & `validation.routes.js`: wired atomic `AuditService.log({ ... }, { tx })` calls.
 5. `validation.routes.js` & `validation.service.js`: external ML call runs outside DB tx; DB writes + `CLAIM_VALIDATED` audit + conditional `markValidated()` run inside `Serializable` tx.
 *(Remaining: real Python ML service end-to-end test when `ML_API_URL` is running, and team agreement on `ValidationResult` revalidation retention vs replacement.)*
+
+---
+
+## 6. Release Readiness & Remaining Blockers (Milestone 3)
+- **KAN-4 Implementation:** Complete (`109/109` mocked tests, `20/20` real PostgreSQL integration tests, `68/68` Newman requests / `77/77` assertions passing).
+- **KAN-6 Compatibility:** Repaired and verified with real PostgreSQL integration tests (mocking only the external Python ML HTTP boundary).
+- **Dependency Audit Findings:** `5` high runtime (`npm audit --omit=dev`: `zod@3.25.76` + dev-installed `prisma@6.19.3` via `peerOptional`) and `26` total (`8` moderate, `17` high, `1` critical `handlebars@4.7.8` via `newman@6.2.3`) remain documented in [dependency-security-remediation.md](./dependency-security-remediation.md).
+- **Validation Freshness:** Count-based snapshots in `POST /api/v1/validation/process-encounter` catch mid-flight suggestion count changes, but validation freshness is **not fully guaranteed** without schema-level run/hash tracking (`createdAt`, `runId`, `codingSnapshotHash`). See [validation-freshness-review.md](./validation-freshness-review.md).
+- **External ML Service:** The real Python ML service (`ML_API_URL`) remains **unverified** end-to-end.
+- **Database Migration Required:** All development and shared databases must apply `20261127000000_phase9b_security_hardening` (`npx prisma migrate deploy` + `npx prisma generate`).
+- **Deployment Status:** **Not approved for production deployment.**

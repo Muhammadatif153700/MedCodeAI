@@ -49,7 +49,7 @@ AI-Powered Medical Coding and Claim Validation System
    - Swagger UI (dev/test): `http://localhost:5000/api-docs` (`GET /api-docs/openapi.json`)
    - OpenAPI 3.0.3 spec: `backend/docs/openapi.yaml` (`npm run docs:validate`)
    - Postman Collection & Env: `postman/MedCodeAI-KAN4.postman_collection.json`, `postman/MedCodeAI-Local.postman_environment.json`
-   - Demonstration, CI & Teammate Guides: [docs/kan4-demonstration-guide.md](./docs/kan4-demonstration-guide.md), [docs/kan4-api-quick-reference.md](./docs/kan4-api-quick-reference.md), [docs/ci-cd-guide.md](./docs/ci-cd-guide.md), [docs/team-integration-checklist.md](./docs/team-integration-checklist.md), [docs/kan4-final-verification-report.md](./docs/kan4-final-verification-report.md), [docs/kan4-final-handover.md](./docs/kan4-final-handover.md), [docs/kan6-compatibility-repair.md](./docs/kan6-compatibility-repair.md)
+   - Demonstration, CI & Teammate Guides: [docs/kan4-demonstration-guide.md](./docs/kan4-demonstration-guide.md), [docs/kan4-api-quick-reference.md](./docs/kan4-api-quick-reference.md), [docs/kan6-api-contract.md](./docs/kan6-api-contract.md), [docs/ci-cd-guide.md](./docs/ci-cd-guide.md), [docs/team-integration-checklist.md](./docs/team-integration-checklist.md), [docs/kan4-final-verification-report.md](./docs/kan4-final-verification-report.md), [docs/kan4-final-handover.md](./docs/kan4-final-handover.md), [docs/kan6-compatibility-repair.md](./docs/kan6-compatibility-repair.md), [docs/dependency-security-remediation.md](./docs/dependency-security-remediation.md), [docs/validation-freshness-review.md](./docs/validation-freshness-review.md)
 9. Run automated tests:
    ```bash
    npm test                 # Run mocked unit test suites (17 suites)

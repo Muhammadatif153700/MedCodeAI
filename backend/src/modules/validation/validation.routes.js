@@ -32,11 +32,12 @@ router.post(
   asyncHandler(async (req, res) => {
     const { encounterId, rawText, placeOfService } = req.body;
 
-    // Pre-check encounter existence before external ML call (never hold DB tx open over network)
+    // Pre-check encounter & coding snapshot before external ML call (never hold DB tx open over network)
     const preEncounter = await prisma.encounter.findUnique({ where: { id: encounterId } });
     if (!preEncounter) {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, 'ENCOUNTER_NOT_FOUND', 'Encounter not found');
     }
+    const preSnapshot = await encounterRepository.countValidationPrerequisites(encounterId, prisma);
 
     const mlOutput = await validationService.analyzeMedicalText(rawText);
 
@@ -45,6 +46,21 @@ router.post(
         const encounter = await tx.encounter.findUnique({ where: { id: encounterId } });
         if (!encounter) {
           throw new ApiError(HTTP_STATUS.NOT_FOUND, 'ENCOUNTER_NOT_FOUND', 'Encounter not found');
+        }
+        const currentSnapshot = await encounterRepository.countValidationPrerequisites(
+          encounterId,
+          tx
+        );
+        if (
+          encounter.status !== preEncounter.status ||
+          currentSnapshot.acceptedSuggestions !== preSnapshot.acceptedSuggestions ||
+          currentSnapshot.pendingSuggestions !== preSnapshot.pendingSuggestions
+        ) {
+          throw new ApiError(
+            HTTP_STATUS.CONFLICT,
+            'CONCURRENT_MODIFICATION',
+            'Encounter or coding suggestions changed during ML analysis; please retry validation'
+          );
         }
 
         const validation = await validationService.validateClaim(encounterId, mlOutput, tx);

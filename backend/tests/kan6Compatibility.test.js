@@ -178,6 +178,8 @@ describe('KAN-6 Compatibility & Integration Repairs (Mocked)', () => {
       payerId: 1,
       status: 'CODING_IN_PROGRESS',
     });
+    mockPrisma.codingSuggestion.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+    mockPrisma.validationResult.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
     axios.post.mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
     const unconfMl = await request(app)
       .post('/api/v1/validation/process-encounter')
@@ -195,6 +197,8 @@ describe('KAN-6 Compatibility & Integration Repairs (Mocked)', () => {
         payerId: 1,
         status: 'CODING_IN_PROGRESS',
       });
+      mockPrisma.codingSuggestion.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+      mockPrisma.validationResult.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
       axios.post.mockResolvedValueOnce({ data: { unexpected: true } });
       const badMlRes = await request(app)
         .post('/api/v1/validation/process-encounter')
@@ -210,6 +214,8 @@ describe('KAN-6 Compatibility & Integration Repairs (Mocked)', () => {
         placeOfService: '11',
         status: 'CODING_IN_PROGRESS',
       });
+      mockPrisma.codingSuggestion.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+      mockPrisma.validationResult.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
       axios.post.mockResolvedValueOnce({
         data: { cpt_codes: [{ code: '99213' }], icd10_codes: [{ code: 'I10' }] },
       });
@@ -224,10 +230,14 @@ describe('KAN-6 Compatibility & Integration Repairs (Mocked)', () => {
               plan: { authRequired: false },
             }),
           },
+          codingSuggestion: { count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0) },
           claimEditRule: {
             findMany: jest.fn().mockResolvedValueOnce([{ codeA: '99213', action: 'DENY' }]),
           },
-          validationResult: { create: jest.fn().mockResolvedValue({}) },
+          validationResult: {
+            create: jest.fn().mockResolvedValue({}),
+            count: jest.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(0),
+          },
           denialRisk: { create: jest.fn().mockResolvedValue({}) },
           rateReference: { findFirst: jest.fn().mockResolvedValueOnce(null) },
           auditLog: { create: jest.fn().mockResolvedValueOnce({ id: 20 }) },
@@ -249,6 +259,8 @@ describe('KAN-6 Compatibility & Integration Repairs (Mocked)', () => {
         placeOfService: '11',
         status: 'CODING_IN_PROGRESS',
       });
+      mockPrisma.codingSuggestion.count.mockResolvedValueOnce(1).mockResolvedValueOnce(1);
+      mockPrisma.validationResult.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
       axios.post.mockResolvedValueOnce({
         data: { cpt_codes: [{ code: '99213' }], icd10_codes: [{ code: 'I10' }] },
       });
@@ -266,12 +278,22 @@ describe('KAN-6 Compatibility & Integration Repairs (Mocked)', () => {
           claimEditRule: { findMany: jest.fn().mockResolvedValueOnce([]) },
           validationResult: {
             create: jest.fn().mockResolvedValue({}),
-            count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0),
+            count: jest
+              .fn()
+              .mockResolvedValueOnce(0)
+              .mockResolvedValueOnce(0)
+              .mockResolvedValueOnce(1)
+              .mockResolvedValueOnce(0),
           },
           denialRisk: { create: jest.fn().mockResolvedValue({}) },
           rateReference: { findFirst: jest.fn().mockResolvedValueOnce(null) },
           codingSuggestion: {
-            count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(1), // 1 pending!
+            count: jest
+              .fn()
+              .mockResolvedValueOnce(1)
+              .mockResolvedValueOnce(1)
+              .mockResolvedValueOnce(1)
+              .mockResolvedValueOnce(1), // 1 pending!
           },
           auditLog: { create: jest.fn().mockResolvedValueOnce({ id: 21 }) },
         })
@@ -291,6 +313,8 @@ describe('KAN-6 Compatibility & Integration Repairs (Mocked)', () => {
         placeOfService: '11',
         status: 'CODING_IN_PROGRESS',
       });
+      mockPrisma.codingSuggestion.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+      mockPrisma.validationResult.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
       axios.post.mockResolvedValueOnce({
         data: { cpt_codes: [{ code: '99213' }], icd10_codes: [{ code: 'I10' }] },
       });
@@ -322,6 +346,8 @@ describe('KAN-6 Compatibility & Integration Repairs (Mocked)', () => {
             create: jest.fn().mockResolvedValue({}),
             count: jest
               .fn()
+              .mockResolvedValueOnce(0)
+              .mockResolvedValueOnce(0)
               .mockResolvedValueOnce(1)
               .mockResolvedValueOnce(0)
               .mockResolvedValueOnce(1)
@@ -332,6 +358,8 @@ describe('KAN-6 Compatibility & Integration Repairs (Mocked)', () => {
           codingSuggestion: {
             count: jest
               .fn()
+              .mockResolvedValueOnce(1)
+              .mockResolvedValueOnce(0)
               .mockResolvedValueOnce(1)
               .mockResolvedValueOnce(0)
               .mockResolvedValueOnce(1)

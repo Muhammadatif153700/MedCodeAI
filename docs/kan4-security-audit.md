@@ -1,6 +1,6 @@
 # MedCodeAI — KAN-4 Security & Integrity Audit (`Phase 9A` -> `Phase 9F Part 1` Verified)
 
-> **Resolution Status (Phase 9F Part 1):** `F-01`, `F-02`, `F-04`, `F-05`, `F-06`, `F-07`, `F-08`, and `F-09` have been resolved and verified with mocked (`17 suites / 105 tests`), real PostgreSQL (`9 suites / 18 tests`), and Newman (`68 requests / 77 assertions`) suites. Swagger UI is hard-disabled in `NODE_ENV=production` (`swagger.js`). Teammate `KAN-6` (`F-03`) has new commits on `origin/dev` (`1756fd4`, `d59e986`) awaiting integration review. See [kan4-final-verification-report.md](./kan4-final-verification-report.md).
+> **Resolution Status (Milestone 3 Part 2B):** `F-01`, `F-02`, `F-03` (KAN-6 compatibility repairs), `F-04`, `F-05`, `F-06`, `F-07`, `F-08`, and `F-09` have been resolved and verified. Swagger UI is hard-disabled in `NODE_ENV=production` (`swagger.js`). See [kan4-final-verification-report.md](./kan4-final-verification-report.md), [dependency-security-remediation.md](./dependency-security-remediation.md), and [validation-freshness-review.md](./validation-freshness-review.md).
 
 ---
 

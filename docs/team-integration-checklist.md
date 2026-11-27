@@ -11,6 +11,6 @@
 - **Encounter Lifecycle:** `const { startCoding, markValidated, markClaimSubmitted, closeEncounter } = require('../encounters');`
 
 ## 3. Teammate Responsibilities & Merge Workflow
-- **Atif (`KAN-6`):** Compatibility repairs for `origin/dev` (`1756fd4`, `d59e986`) are implemented on `feature/kan-4-backend` (see [docs/kan6-compatibility-repair.md](./kan6-compatibility-repair.md)). Please review the diff, configure `ML_API_URL` when testing the live Python ML service, and confirm whether `ValidationResult` revalidation should replace prior rows or add a `runId`/`createdAt` migration later.
+- **Atif (`KAN-6`):** Compatibility repairs for `origin/dev` (`1756fd4`, `d59e986`) and mid-flight coding-snapshot protection are implemented on `feature/kan-4-backend` (see [docs/kan6-compatibility-repair.md](./kan6-compatibility-repair.md), [docs/kan6-api-contract.md](./kan6-api-contract.md), and [docs/validation-freshness-review.md](./validation-freshness-review.md)). Please review the diff, configure `ML_API_URL` when testing the live Python ML service, and confirm the proposed `validation_results` `run_id`/`created_at`/`coding_snapshot_hash` migration for Milestone 3+.
 - **Farhan (`KAN-5`) & Haseeb (`KAN-7`):** Pass `{ tx }` into `startCoding()` / `markClaimSubmitted()` inside your Prisma transactions.
 - **Frontend Team:** Consume `/api/v1/*` with `Authorization: Bearer <jwt>`; see `http://localhost:5000/api-docs` and `docs/kan4-api-quick-reference.md`. Never connect frontend directly to PostgreSQL.
