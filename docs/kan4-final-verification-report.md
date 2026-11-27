@@ -26,12 +26,6 @@
 
 ---
 
-## 4. Phase 9F Part 2 Plan — Existing-Data Migration Upgrade Test (`medcodeai_upgrade_test`)
-1. **Manual Neon Setup Required (Before Part 2):**
-   - On Neon branch `ali_integration_test` (`ep-withered-rain-bi13x7sf`), create an empty logical database named **`medcodeai_upgrade_test`**.
-   - Create gitignored `backend/.env.upgrade.test` with `NODE_ENV=test`, `TEST_APPROVED_ENDPOINTS=ep-withered-rain-bi13x7sf`, `TEST_EXPECTED_DB_NAME=medcodeai_upgrade_test`, pooled `DATABASE_URL` and direct `DIRECT_URL` targeting `medcodeai_upgrade_test`, `JWT_SECRET` (32+ chars), `CONFIRM_DEV_SEED=true`, `SEED_TARGET_BRANCH=ali_integration_test`, `SEED_APPROVED_ENDPOINTS=ep-withered-rain-bi13x7sf`, and seed passwords.
-2. **Part 2 Verification Steps (Using an Isolated Migration Workspace):**
-   - Verify `medcodeai_upgrade_test` is empty (`0` tables).
-   - Apply only `20261125000000_init` from an isolated temp migration directory (without editing committed migrations).
-   - Insert synthetic old-schema users, audit logs, patients, providers, payers/plans, and encounters.
-   - Apply `20261127000000_phase9b_security_hardening` and verify existing records preserved, `users.token_version = 0`, existing `audit_logs.user_id` preserved, new `user_id = NULL` audit logs succeed, all 5 custom constraints intact, and checksums valid.
+## 4. Phase 9F Part 2 — Existing-Data Migration Upgrade Verified (`medcodeai_upgrade_test`)
+- Executed `npm --prefix backend run test:db:upgrade` ([run-upgrade-test.js](file:///c:/Users/Ali/Desktop/FSProject/MedCodeAI/backend/scripts/run-upgrade-test.js)) using `backend/.env.upgrade.test` against `medcodeai_upgrade_test` (`ep-withered-rain-bi13x7sf`).
+- Verified empty DB (`0` tables) -> `20261125000000_init` -> old-schema synthetic records (`4` roles, `3` users, `2` audit logs, `1` patient, `1` provider, `2` payers, `2` plans, `1` encounter, `1` medical record) -> `20261127000000_phase9b_security_hardening` -> 100% row/hash/actor preservation, `token_version = 0`, nullable `audit_logs.user_id`, 5 custom constraints, live auth/audit/medical checks, and second-run idempotency. See [migration-upgrade-verification.md](./migration-upgrade-verification.md).

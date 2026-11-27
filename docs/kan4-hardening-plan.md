@@ -28,7 +28,7 @@
    - Verified empty `medcodeai_test` (`0` tables), applied `20261125000000_init` and `20261127000000_phase9b_security_hardening` via `test:db:migrate:deploy`, and confirmed `26` application tables + `5` custom constraints via `test:db:integrity`.
    - Ran `test:db:seed` twice idempotently (`4` roles, `8` users with `tokenVersion = 0`, `10` patients, `5` providers, `3` payers, `6` plans, `15` encounters) and smoke-tested live `/health`, `/health/db`, `/auth/login` (`tv: 0`), `/auth/me`, and RBAC enforcement.
    - **Phase 9D Complete (Verified on `medcodeai_test`):** Created and ran 9 real PostgreSQL integration suites (18 tests) via `npm --prefix backend run test:integration` covering auth, JWT revocation, admin/profile, patients, providers, encounters + lifecycle, audit logging, all 5 custom PG constraints, real transaction rollbacks, and barrier-coordinated concurrency. See [docs/kan4-integration-test-report.md](./kan4-integration-test-report.md).
-   - **Pending Upgrade Test:** Old-schema (`20261125000000_init`) -> `20261127000000_phase9b_security_hardening` upgrade verification remains pending until a separate disposable logical database is provisioned.
+   - **Upgrade Test Complete (Phase 9F Part 2):** Verified `20261125000000_init` -> old-schema synthetic records -> `20261127000000_phase9b_security_hardening` on isolated `medcodeai_upgrade_test` via `npm --prefix backend run test:db:upgrade`. See [docs/migration-upgrade-verification.md](./migration-upgrade-verification.md).
 
 ---
 

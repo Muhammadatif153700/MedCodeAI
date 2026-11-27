@@ -43,6 +43,7 @@ AI-Powered Medical Coding and Claim Validation System
    npm run test:db:migrate:status # Check migration status on isolated test DB
    npm run test:db:seed           # Run idempotent seed on isolated test DB
    npm run test:db:integrity      # Verify 26 tables, 5 custom constraints, and Phase 9B columns
+   npm run test:db:upgrade        # Verify existing-data upgrade on medcodeai_upgrade_test (.env.upgrade.test)
    ```
 8. API Documentation & Postman (`Phase 9E`):
    - Swagger UI (dev/test): `http://localhost:5000/api-docs` (`GET /api-docs/openapi.json`)

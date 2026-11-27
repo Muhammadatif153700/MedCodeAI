@@ -1,7 +1,7 @@
 # MedCodeAI — Phase 9B Migration & Rollout Guide
 
 > **Migration Name:** `20261127000000_phase9b_security_hardening`
-> **Target Status:** Applied and verified on isolated disposable branch `ali_integration_test` (`medcodeai_test`); **not yet applied to `ali_dev` or teammate branches** awaiting rollout approval.
+> **Target Status:** Applied and verified on isolated fresh DB (`medcodeai_test`) and isolated existing-data upgrade DB (`medcodeai_upgrade_test` via `npm --prefix backend run test:db:upgrade`); **not yet applied to `ali_dev` or teammate branches** awaiting rollout approval.
 
 ---
 

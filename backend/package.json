@@ -21,7 +21,8 @@
     "test:db:migrate:deploy": "node scripts/run-test-db.js migrate-deploy",
     "test:db:migrate:status": "node scripts/run-test-db.js migrate-status",
     "test:db:seed": "node scripts/run-test-db.js seed",
-    "test:db:integrity": "node scripts/run-test-db.js integrity"
+    "test:db:integrity": "node scripts/run-test-db.js integrity",
+    "test:db:upgrade": "node scripts/run-upgrade-test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
