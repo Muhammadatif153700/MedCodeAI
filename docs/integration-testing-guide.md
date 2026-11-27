@@ -57,6 +57,7 @@ Run all isolated database operations through the guarded npm scripts in `backend
 | `npm --prefix backend run test:db:migrate:status` | Runs `npx prisma migrate status` against the verified disposable database |
 | `npm --prefix backend run test:db:seed` | Runs `node prisma/seed.js` against the verified disposable database |
 | `npm --prefix backend run test:db:integrity` | Verifies 26 tables, 5 custom constraints, `token_version`, nullable `audit_logs.user_id`, FKs, and indexes |
+| `npm --prefix backend run test:integration` | Runs all 9 real PostgreSQL integration suites sequentially (`backend/jest.integration.config.js`) against `medcodeai_test` |
 
 ### Phase 9C Part 2 Verification Summary (`medcodeai_test`)
 - Verified empty database (`0` tables) prior to migration.

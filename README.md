@@ -46,8 +46,9 @@ AI-Powered Medical Coding and Claim Validation System
    ```
 8. Run automated tests:
    ```bash
-   npm test
-   npm run test:coverage
+   npm test                # Run mocked unit test suites (16 suites)
+   npm run test:coverage   # Run mocked unit tests with coverage
+   npm run test:integration # Run real PostgreSQL integration tests (9 suites) against .env.test
    ```
 
 > **Note:** Phase 9B security & lifecycle hardening is complete locally (see [docs/phase9b-migration-guide.md](./docs/phase9b-migration-guide.md) and [docs/encounter-lifecycle-contract.md](./docs/encounter-lifecycle-contract.md)). **Security Notice:** `KAN-6` routes (`/payers/*`, `/validation/*`) remain unauthenticated (`F-03`); do not expose the combined backend publicly until secured. All medical data used in this project must be synthetic or de-identified.

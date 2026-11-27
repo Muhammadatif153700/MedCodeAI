@@ -6,8 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "jest --runInBand",
-    "test:coverage": "jest --runInBand --coverage",
+    "test": "jest --runInBand --testPathIgnorePatterns=tests/integration/",
+    "test:coverage": "jest --runInBand --coverage --testPathIgnorePatterns=tests/integration/",
+    "test:integration": "node scripts/run-test-db.js integration",
     "prisma:generate": "npx prisma generate",
     "prisma:validate": "npx prisma validate",
     "prisma:migrate:status": "npx prisma migrate status",

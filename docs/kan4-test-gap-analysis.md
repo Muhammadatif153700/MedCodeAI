@@ -24,9 +24,9 @@
 
 | Priority | Gap | Module | Recommended Test |
 | :---: | :--- | :--- | :--- |
-| **P1 (High)** | Live PostgreSQL writes, `P2002`/`P2003`/5 custom `CHECK` constraints, `Serializable` concurrency, & rollback | All `KAN-4` | Run real HTTP + Prisma integration suite against disposable `ali_integration_test` branch |
-| **P1 (High)** | Encounter status bypass & payer/plan update invalidation | `encounters` | Test rejecting direct `PATCH` to `VALIDATED`/`CLAIM_SUBMITTED` without prerequisites |
-| **P1 (High)** | JWT revocation after password change | `auth` / `users` | Test old JWT rejected (`401`) after `PATCH /profile/password` once `tokenVersion` is added |
+| **P1 (High)** | Live PostgreSQL writes, `P2002`/`P2003`/5 custom `CHECK` constraints, `Serializable` concurrency, & rollback | All `KAN-4` | **RESOLVED (Phase 9D):** 9 real PostgreSQL integration suites (18 tests) verified via `npm --prefix backend run test:integration` on `medcodeai_test` (`ali_integration_test`). |
+| **P1 (High)** | Encounter status bypass & payer/plan update invalidation | `encounters` | **RESOLVED (Phase 9B/9C/9D):** Generic `PATCH` status rejected; `startCoding`/`markValidated`/`markClaimSubmitted`/`closeEncounter` verified against real PostgreSQL. |
+| **P1 (High)** | JWT revocation after password change | `auth` / `users` | **RESOLVED (Phase 9B/9D):** `tokenVersion` (`tv` claim) increments on password change, role reassignment, and status disable; verified against real PostgreSQL. |
 | **P2 (Med)** | `updateProvider`, `deleteProvider` success, `P2002` on update, `P2003` catch | `providers` | Add unit tests covering lines 43–50, 82–131, 154–179 of `provider.service.js` |
 | **P2 (Med)** | `deletePatient` success & `P2003` catch | `patients` | Add unit tests covering lines 113–138 of `patient.service.js` |
 | **P2 (Med)** | `assignRole` success, last-admin demotion, `activate`, `getUserById` 404 | `users` | Add unit tests covering lines 228–260, 296–315 of `user.service.js` |

@@ -192,9 +192,16 @@ async function main() {
     case 'integrity':
       await verifyDatabaseIntegrity(env);
       break;
+    case 'integration':
+      runGuardedChild(
+        'npx',
+        ['jest', '--config', 'jest.integration.config.js', '--runInBand'],
+        env
+      );
+      break;
     default:
       throw new Error(
-        `Unknown command "${command}". Use: verify | migrate-deploy | migrate-status | seed | integrity`
+        `Unknown command "${command}". Use: verify | migrate-deploy | migrate-status | seed | integrity | integration`
       );
   }
 }
