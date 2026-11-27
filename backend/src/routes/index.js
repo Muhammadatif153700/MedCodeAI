@@ -9,6 +9,7 @@ const { authenticate } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/rbac.middleware');
 const authRoutes = require('../modules/auth/auth.routes');
 const { auditController } = require('../modules/audit');
+const { userRoutes, profileRoutes, userController } = require('../modules/users');
 const { patientRoutes } = require('../modules/patients');
 const { providerRoutes } = require('../modules/providers');
 const { encounterRoutes } = require('../modules/encounters');
@@ -57,6 +58,17 @@ router.get(
  * Authentication routes (KAN-12, KAN-13)
  */
 router.use('/auth', authRoutes);
+
+/**
+ * Self-service Profile routes (KAN-16)
+ */
+router.use('/profile', profileRoutes);
+
+/**
+ * Administrator User & Role Management routes (KAN-15)
+ */
+router.use('/users', userRoutes);
+router.get('/roles', authenticate, authorize(ROLES.ADMIN), userController.listRoles);
 
 /**
  * Administrator-only Audit Log retrieval (FR-29 / UC-29 / KAN-20)
