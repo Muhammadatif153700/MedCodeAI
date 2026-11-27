@@ -16,10 +16,9 @@ function loadOpenApiSpec() {
 }
 
 function isSwaggerEnabled(nodeEnv = process.env.NODE_ENV) {
-  if (nodeEnv === 'production') {
-    return process.env.ENABLE_SWAGGER_DOCS === 'true';
-  }
-  return true;
+  // Swagger UI & raw OpenAPI JSON remain disabled in production until
+  // authenticated/internal-network access protection is implemented.
+  return nodeEnv !== 'production';
 }
 
 /**
@@ -46,7 +45,7 @@ function mountSwaggerDocs(app, nodeEnv = process.env.NODE_ENV) {
       explorer: false,
       customSiteTitle: 'MedCodeAI KAN-4 API Documentation',
       swaggerOptions: {
-        persistAuthorization: true,
+        persistAuthorization: false,
       },
     })
   );

@@ -79,19 +79,21 @@ describe('OpenAPI Specification & Swagger UI (Phase 9E)', () => {
     expect(uiRes.text).toContain('id="swagger-ui"');
   });
 
-  test('Disables Swagger UI in production by default', async () => {
+  test('Disables Swagger UI and OpenAPI JSON in production even if ENABLE_SWAGGER_DOCS=true', async () => {
     const prevFlag = process.env.ENABLE_SWAGGER_DOCS;
-    delete process.env.ENABLE_SWAGGER_DOCS;
+    process.env.ENABLE_SWAGGER_DOCS = 'true';
     try {
       expect(isSwaggerEnabled('production')).toBe(false);
       const prodApp = express();
       expect(mountSwaggerDocs(prodApp, 'production')).toBe(false);
-      const res = await request(prodApp).get('/api-docs/');
-      expect(res.status).toBe(404);
+      expect((await request(prodApp).get('/api-docs/')).status).toBe(404);
+      expect((await request(prodApp).get('/api-docs/openapi.json')).status).toBe(404);
       expect(loadOpenApiSpec().info.version).toBe('1.0.0');
     } finally {
       if (prevFlag !== undefined) {
         process.env.ENABLE_SWAGGER_DOCS = prevFlag;
+      } else {
+        delete process.env.ENABLE_SWAGGER_DOCS;
       }
     }
   });

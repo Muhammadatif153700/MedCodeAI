@@ -1,6 +1,6 @@
 # MedCodeAI — Team Handover & Onboarding Guide (Milestone 1)
 
-> **Current Implementation Status:** All 13 `KAN-4` tasks (`KAN-8`–`KAN-20`) plus **Phase 9B security & lifecycle hardening** (`tokenVersion` JWT revocation, nullable `audit_logs.user_id`, and strict `EncounterService` transitions) are implemented and tested locally. Migration `20261127000000_phase9b_security_hardening` awaits approval before applying to Neon (see [phase9b-migration-guide.md](./phase9b-migration-guide.md)). **Note:** `KAN-6` endpoints remain unauthenticated (`F-03`); do not expose the combined backend publicly until Atif wires `authenticate`/`authorize`.
+> **Current Implementation Status (Phase 9F Part 1):** All 13 `KAN-4` tasks (`KAN-8`–`KAN-20`), Phase 9B security & lifecycle hardening, Phase 9D real PostgreSQL integration tests, Phase 9E OpenAPI 3.0.3 + Swagger UI + Postman/Newman suite, and Phase 9F GitHub Actions CI (`.github/workflows/backend-ci.yml`) are complete locally. See [kan4-api-quick-reference.md](./kan4-api-quick-reference.md), [team-integration-checklist.md](./team-integration-checklist.md), and [phase9b-migration-guide.md](./phase9b-migration-guide.md). Note: `origin/dev` received new `KAN-6` commits (`1756fd4`, `d59e986`) awaiting coordinated merge review.
 
 ---
 
