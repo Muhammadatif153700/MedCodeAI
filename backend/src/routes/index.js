@@ -9,6 +9,9 @@ const { authenticate } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/rbac.middleware');
 const authRoutes = require('../modules/auth/auth.routes');
 const { auditController } = require('../modules/audit');
+const { patientRoutes } = require('../modules/patients');
+const { providerRoutes } = require('../modules/providers');
+const { encounterRoutes } = require('../modules/encounters');
 const payersRoutes = require('../modules/payers/payers.routes');
 const validationRoutes = require('../modules/validation/validation.routes');
 
@@ -64,6 +67,13 @@ router.get(
   authorize(ROLES.ADMIN),
   auditController.listAuditLogs
 );
+
+/**
+ * Core Medical Entity routes (KAN-17, KAN-18, KAN-19)
+ */
+router.use('/patients', patientRoutes);
+router.use('/providers', providerRoutes);
+router.use('/encounters', encounterRoutes);
 
 /**
  * Payers & Validation routes (KAN-6)
