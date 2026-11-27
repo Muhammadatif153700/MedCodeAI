@@ -17,9 +17,11 @@ jest.mock('../src/config/prisma', () => ({
       findMany: jest.fn(),
       count: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
     },
     medicalRecord: { count: jest.fn() },
+    codingSuggestion: { count: jest.fn() },
     validationResult: { count: jest.fn() },
     denialRisk: { count: jest.fn() },
     report: { count: jest.fn() },
@@ -32,9 +34,15 @@ jest.mock('../src/config/prisma', () => ({
 
 const app = require('../src/app');
 const { prisma } = require('../src/config/prisma');
+const {
+  startCoding,
+  markValidated,
+  markClaimSubmitted,
+  closeEncounter,
+} = require('../src/modules/encounters');
 
 function signToken(sub = '2') {
-  return jwt.sign({}, process.env.JWT_SECRET, {
+  return jwt.sign({ tv: 0 }, process.env.JWT_SECRET, {
     algorithm: 'HS256',
     subject: String(sub),
     expiresIn: '1h',
@@ -51,11 +59,12 @@ function mockAuthUser(roleName = 'BILLING_SPECIALIST') {
     roleId: 2,
     isActive: true,
     accountStatus: 'APPROVED',
+    tokenVersion: 0,
     role: { id: 2, name: roleName },
   });
 }
 
-describe('Encounters Module (Phase 7 / KAN-19)', () => {
+describe('Encounters Module & Hardened Lifecycle (Phase 7 & 9B / KAN-19, F-01)', () => {
   const token = signToken('2');
 
   afterEach(() => {
@@ -119,7 +128,7 @@ describe('Encounters Module (Phase 7 / KAN-19)', () => {
     });
   });
 
-  test('Rejects client-supplied status on creation, payer-plan mismatch (400), and missing references (404)', async () => {
+  test('Rejects client-supplied status on create, payer-plan mismatch (400), and missing refs (404)', async () => {
     mockAuthUser('CODER');
     const statusInject = await request(app)
       .post('/api/v1/encounters')
@@ -176,53 +185,243 @@ describe('Encounters Module (Phase 7 / KAN-19)', () => {
     expect(missingPatient.body.error.code).toBe('PATIENT_NOT_FOUND');
   });
 
-  test('Enforces valid lifecycle transitions and rejects skipping steps (OPEN -> CLAIM_SUBMITTED)', async () => {
+  test('F-01: Generic PATCH rejects workflow status changes and blocks metadata edits once locked or dependents exist', async () => {
     mockAuthUser('CODER');
-    prisma.encounter.findUnique.mockResolvedValueOnce({
-      id: 10,
-      payerId: 3,
-      planId: 4,
-      status: 'OPEN',
-    });
-
-    const invalidTransition = await request(app)
+    const bypassAttempt = await request(app)
       .patch('/api/v1/encounters/10')
       .set('Authorization', `Bearer ${token}`)
-      .send({ status: 'CLAIM_SUBMITTED' });
-    expect(invalidTransition.status).toBe(400);
-    expect(invalidTransition.body.error.code).toBe('INVALID_STATUS_TRANSITION');
+      .send({ status: 'VALIDATED' });
+    expect(bypassAttempt.status).toBe(400);
+    expect(bypassAttempt.body.error.code).toBe('VALIDATION_ERROR');
 
     mockAuthUser('CODER');
-    prisma.encounter.findUnique.mockResolvedValueOnce({
-      id: 10,
-      payerId: 3,
-      planId: 4,
-      status: 'OPEN',
-    });
     prisma.$transaction.mockImplementationOnce(async (fn) =>
       fn({
         encounter: {
-          update: jest.fn().mockResolvedValueOnce({ id: 10, status: 'CODING_IN_PROGRESS' }),
+          findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: 'CODING_IN_PROGRESS' }),
         },
-        auditLog: { create: jest.fn().mockResolvedValueOnce({ id: 2 }) },
       })
     );
-    const validTransition = await request(app)
+    const lockedRes = await request(app)
       .patch('/api/v1/encounters/10')
       .set('Authorization', `Bearer ${token}`)
-      .send({ status: 'CODING_IN_PROGRESS' });
-    expect(validTransition.status).toBe(200);
-    expect(validTransition.body.data.encounter.status).toBe('CODING_IN_PROGRESS');
+      .send({ placeOfService: '21' });
+    expect(lockedRes.status).toBe(409);
+    expect(lockedRes.body.error.code).toBe('ENCOUNTER_LOCKED');
+
+    mockAuthUser('CODER');
+    prisma.$transaction.mockImplementationOnce(async (fn) =>
+      fn({
+        encounter: {
+          findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: 'OPEN' }),
+        },
+        medicalRecord: { count: jest.fn().mockResolvedValueOnce(1) },
+        validationResult: { count: jest.fn().mockResolvedValueOnce(0) },
+        denialRisk: { count: jest.fn().mockResolvedValueOnce(0) },
+        report: { count: jest.fn().mockResolvedValueOnce(0) },
+        claim: { count: jest.fn().mockResolvedValueOnce(0) },
+      })
+    );
+    const depEditRes = await request(app)
+      .patch('/api/v1/encounters/10')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ placeOfService: '21' });
+    expect(depEditRes.status).toBe(409);
+    expect(depEditRes.body.error.code).toBe('DEPENDENT_RECORDS_EXIST');
+  });
+
+  test('F-01: Internal transition service enforces roles, prerequisites, concurrency, and atomic audit', async () => {
+    // Unauthorized role for startCoding
+    await expect(
+      startCoding(10, { userId: 2, role: 'REVIEWER', ipAddress: '127.0.0.1' })
+    ).rejects.toMatchObject({ statusCode: 403, code: 'FORBIDDEN' });
+
+    // Missing medical record prerequisite for startCoding
+    const txMissingRec = {
+      encounter: { findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: 'OPEN' }) },
+      medicalRecord: { count: jest.fn().mockResolvedValueOnce(0) },
+    };
+    await expect(
+      startCoding(10, { userId: 3, role: 'CODER' }, { tx: txMissingRec })
+    ).rejects.toMatchObject({ statusCode: 400, code: 'CODING_PREREQUISITE_MISSING' });
+
+    // Failed validation blocks markValidated
+    const txFailedVal = {
+      encounter: {
+        findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: 'CODING_IN_PROGRESS' }),
+      },
+      validationResult: {
+        count: jest
+          .fn()
+          .mockResolvedValueOnce(2) // totalValidations
+          .mockResolvedValueOnce(1), // failedValidations
+      },
+      codingSuggestion: { count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0) },
+    };
+    await expect(
+      markValidated(10, { userId: 2, role: 'BILLING_SPECIALIST' }, { tx: txFailedVal })
+    ).rejects.toMatchObject({ statusCode: 400, code: 'VALIDATION_NOT_PASSED' });
+
+    // Unsubmitted DRAFT claim blocks markClaimSubmitted
+    const txDraftClaim = {
+      encounter: { findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: 'VALIDATED' }) },
+      claim: { count: jest.fn().mockResolvedValueOnce(0) },
+    };
+    await expect(
+      markClaimSubmitted(10, { userId: 2, role: 'BILLING_SPECIALIST' }, { tx: txDraftClaim })
+    ).rejects.toMatchObject({ statusCode: 400, code: 'CLAIM_NOT_SUBMITTED' });
+
+    // Concurrent modification detected via conditional updateMany returning count=0
+    const txConcurrent = {
+      encounter: {
+        findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: 'VALIDATED' }),
+        updateMany: jest.fn().mockResolvedValueOnce({ count: 0 }),
+      },
+      claim: { count: jest.fn().mockResolvedValueOnce(1) },
+    };
+    await expect(
+      markClaimSubmitted(10, { userId: 2, role: 'BILLING_SPECIALIST' }, { tx: txConcurrent })
+    ).rejects.toMatchObject({ statusCode: 409, code: 'CONCURRENT_MODIFICATION' });
+
+    // Successful markValidated with caller tx and atomic audit
+    const txOkVal = {
+      encounter: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 10, status: 'CODING_IN_PROGRESS' })
+          .mockResolvedValueOnce({ id: 10, status: 'VALIDATED' }),
+        updateMany: jest.fn().mockResolvedValueOnce({ count: 1 }),
+      },
+      validationResult: {
+        count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0),
+      },
+      codingSuggestion: { count: jest.fn().mockResolvedValueOnce(2).mockResolvedValueOnce(0) },
+      auditLog: { create: jest.fn().mockResolvedValueOnce({ id: 100 }) },
+    };
+    const validated = await markValidated(
+      10,
+      { userId: 2, role: 'BILLING_SPECIALIST', ipAddress: '127.0.0.1' },
+      { tx: txOkVal }
+    );
+    expect(validated.status).toBe('VALIDATED');
+    expect(txOkVal.auditLog.create).toHaveBeenCalledTimes(1);
+
+    // Unreviewed SUGGESTED coding suggestions block markValidated
+    const txUnreviewed = {
+      encounter: {
+        findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: 'CODING_IN_PROGRESS' }),
+      },
+      validationResult: {
+        count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0),
+      },
+      codingSuggestion: {
+        count: jest.fn().mockResolvedValueOnce(2).mockResolvedValueOnce(1),
+      },
+    };
+    await expect(
+      markValidated(10, { userId: 2, role: 'BILLING_SPECIALIST' }, { tx: txUnreviewed })
+    ).rejects.toMatchObject({ statusCode: 400, code: 'UNREVIEWED_SUGGESTIONS_EXIST' });
+
+    // closeEncounter blocked if non-terminal claims exist
+    const txOpenClaims = {
+      encounter: {
+        findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: 'CLAIM_SUBMITTED' }),
+      },
+      claim: { count: jest.fn().mockResolvedValueOnce(1) },
+    };
+    await expect(
+      closeEncounter(10, { userId: 1, role: 'ADMIN' }, { tx: txOpenClaims })
+    ).rejects.toMatchObject({ statusCode: 409, code: 'OPEN_CLAIMS_EXIST' });
+
+    // closeEncounter rejects CODING_IN_PROGRESS and VALIDATED mid-workflow closure
+    for (const midStatus of ['CODING_IN_PROGRESS', 'VALIDATED']) {
+      const txMid = {
+        encounter: {
+          findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: midStatus }),
+        },
+      };
+      await expect(
+        closeEncounter(10, { userId: 1, role: 'ADMIN' }, { tx: txMid })
+      ).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_STATUS_TRANSITION' });
+    }
+
+    // closeEncounter on OPEN requires ADMIN and 0 dependents
+    const txOpenNonAdmin = {
+      encounter: {
+        findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: 'OPEN' }),
+      },
+    };
+    await expect(
+      closeEncounter(10, { userId: 2, role: 'BILLING_SPECIALIST' }, { tx: txOpenNonAdmin })
+    ).rejects.toMatchObject({ statusCode: 403, code: 'FORBIDDEN' });
+
+    const txOpenHasDeps = {
+      encounter: {
+        findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: 'OPEN' }),
+      },
+      medicalRecord: { count: jest.fn().mockResolvedValueOnce(1) },
+      validationResult: { count: jest.fn().mockResolvedValueOnce(0) },
+      denialRisk: { count: jest.fn().mockResolvedValueOnce(0) },
+      report: { count: jest.fn().mockResolvedValueOnce(0) },
+      claim: { count: jest.fn().mockResolvedValueOnce(0) },
+    };
+    await expect(
+      closeEncounter(10, { userId: 1, role: 'ADMIN' }, { tx: txOpenHasDeps })
+    ).rejects.toMatchObject({ statusCode: 409, code: 'DEPENDENT_RECORDS_EXIST' });
+
+    const txOpenCloseOk = {
+      encounter: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 10, status: 'OPEN' })
+          .mockResolvedValueOnce({ id: 10, status: 'CLOSED' }),
+        updateMany: jest.fn().mockResolvedValueOnce({ count: 1 }),
+      },
+      medicalRecord: { count: jest.fn().mockResolvedValueOnce(0) },
+      validationResult: { count: jest.fn().mockResolvedValueOnce(0) },
+      denialRisk: { count: jest.fn().mockResolvedValueOnce(0) },
+      report: { count: jest.fn().mockResolvedValueOnce(0) },
+      claim: { count: jest.fn().mockResolvedValueOnce(0) },
+      auditLog: { create: jest.fn().mockResolvedValueOnce({ id: 101 }) },
+    };
+    const closedOpen = await closeEncounter(
+      10,
+      { userId: 1, role: 'ADMIN', ipAddress: '127.0.0.1' },
+      { tx: txOpenCloseOk }
+    );
+    expect(closedOpen.status).toBe('CLOSED');
+
+    const txClaimCloseOk = {
+      encounter: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 10, status: 'CLAIM_SUBMITTED' })
+          .mockResolvedValueOnce({ id: 10, status: 'CLOSED' }),
+        updateMany: jest.fn().mockResolvedValueOnce({ count: 1 }),
+      },
+      claim: { count: jest.fn().mockResolvedValueOnce(0) },
+      auditLog: { create: jest.fn().mockResolvedValueOnce({ id: 102 }) },
+    };
+    const closedClaim = await closeEncounter(
+      10,
+      { userId: 2, role: 'BILLING_SPECIALIST', ipAddress: '127.0.0.1' },
+      { tx: txClaimCloseOk }
+    );
+    expect(closedClaim.status).toBe('CLOSED');
   });
 
   test('Blocks deletion with 409 when dependent records/claims exist and deletes cleanly when empty', async () => {
     mockAuthUser('ADMIN');
-    prisma.encounter.findUnique.mockResolvedValueOnce({ id: 10, status: 'OPEN' });
-    prisma.medicalRecord.count.mockResolvedValueOnce(1);
-    prisma.validationResult.count.mockResolvedValueOnce(0);
-    prisma.denialRisk.count.mockResolvedValueOnce(0);
-    prisma.report.count.mockResolvedValueOnce(0);
-    prisma.claim.count.mockResolvedValueOnce(0);
+    prisma.$transaction.mockImplementationOnce(async (fn) =>
+      fn({
+        encounter: { findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: 'OPEN' }) },
+        medicalRecord: { count: jest.fn().mockResolvedValueOnce(1) },
+        validationResult: { count: jest.fn().mockResolvedValueOnce(0) },
+        denialRisk: { count: jest.fn().mockResolvedValueOnce(0) },
+        report: { count: jest.fn().mockResolvedValueOnce(0) },
+        claim: { count: jest.fn().mockResolvedValueOnce(0) },
+      })
+    );
 
     const delBlocked = await request(app)
       .delete('/api/v1/encounters/10')
@@ -231,15 +430,17 @@ describe('Encounters Module (Phase 7 / KAN-19)', () => {
     expect(delBlocked.body.error.code).toBe('DEPENDENT_RECORDS_EXIST');
 
     mockAuthUser('ADMIN');
-    prisma.encounter.findUnique.mockResolvedValueOnce({ id: 10, status: 'OPEN' });
-    prisma.medicalRecord.count.mockResolvedValueOnce(0);
-    prisma.validationResult.count.mockResolvedValueOnce(0);
-    prisma.denialRisk.count.mockResolvedValueOnce(0);
-    prisma.report.count.mockResolvedValueOnce(0);
-    prisma.claim.count.mockResolvedValueOnce(0);
     prisma.$transaction.mockImplementationOnce(async (fn) =>
       fn({
-        encounter: { delete: jest.fn().mockResolvedValueOnce({ id: 10 }) },
+        encounter: {
+          findUnique: jest.fn().mockResolvedValueOnce({ id: 10, status: 'OPEN' }),
+          delete: jest.fn().mockResolvedValueOnce({ id: 10 }),
+        },
+        medicalRecord: { count: jest.fn().mockResolvedValueOnce(0) },
+        validationResult: { count: jest.fn().mockResolvedValueOnce(0) },
+        denialRisk: { count: jest.fn().mockResolvedValueOnce(0) },
+        report: { count: jest.fn().mockResolvedValueOnce(0) },
+        claim: { count: jest.fn().mockResolvedValueOnce(0) },
         auditLog: { create: jest.fn().mockResolvedValueOnce({ id: 3 }) },
       })
     );

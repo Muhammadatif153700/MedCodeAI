@@ -251,9 +251,9 @@ describe('Authentication Endpoints — Registration, Login & /me (Phase 6 / KAN-
       });
     });
 
-    test('16 & 24. Unknown email returns generic 401 without fabricating audit userId', async () => {
+    test('16 & 24. Unknown email persists USER_LOGIN_FAILED with null actor and returns generic 401', async () => {
       prisma.user.findUnique.mockResolvedValueOnce(null);
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      prisma.auditLog.create.mockResolvedValueOnce({ id: 203 });
 
       const res = await request(app).post('/api/v1/auth/login').send({
         email: 'unknown@medcodeai.local',
@@ -262,9 +262,28 @@ describe('Authentication Endpoints — Registration, Login & /me (Phase 6 / KAN-
 
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
-      expect(prisma.auditLog.create).not.toHaveBeenCalled();
-      expect(warnSpy).toHaveBeenCalledTimes(1);
-      warnSpy.mockRestore();
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: null,
+          action: 'USER_LOGIN_FAILED',
+          entity: 'USER',
+          entityId: null,
+        }),
+      });
+    });
+
+    test('24b. Authentication remains denied if failed-login audit persistence fails', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(null);
+      prisma.auditLog.create.mockRejectedValueOnce(new Error('DB failure'));
+
+      const res = await request(app).post('/api/v1/auth/login').send({
+        email: 'unknown@medcodeai.local',
+        password: 'SomePassword#123',
+      });
+
+      expect(res.status).toBe(500);
+      expect(res.body.error.code).toBe('AUDIT_LOG_FAILED');
+      expect(res.body.data).toBeUndefined();
     });
 
     test('17, 18, 19 & 20. Rejects PENDING, REJECTED, disabled, and missing-role accounts', async () => {
@@ -311,7 +330,7 @@ describe('Authentication Endpoints — Registration, Login & /me (Phase 6 / KAN-
       expect(unauth.status).toBe(401);
       expect(unauth.body.error.code).toBe('AUTHENTICATION_REQUIRED');
 
-      const token = jwt.sign({}, process.env.JWT_SECRET, {
+      const token = jwt.sign({ tv: 0 }, process.env.JWT_SECRET, {
         algorithm: 'HS256',
         subject: '4',
         expiresIn: '1h',
@@ -325,6 +344,7 @@ describe('Authentication Endpoints — Registration, Login & /me (Phase 6 / KAN-
         roleId: 3,
         isActive: true,
         accountStatus: 'APPROVED',
+        tokenVersion: 0,
         role: { id: 3, name: 'CODER' },
       });
 

@@ -1,7 +1,14 @@
 const http = require('http');
 const app = require('./app');
-const { env } = require('./config/env');
+const {
+  env,
+  assertDatabaseConfigured,
+  assertJwtConfigured,
+} = require('./config/env');
 const { disconnectPrisma } = require('./config/prisma');
+
+assertDatabaseConfigured(env);
+assertJwtConfigured(env);
 
 const server = http.createServer(app);
 

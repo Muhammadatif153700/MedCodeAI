@@ -121,13 +121,69 @@ async function findReferences({ patientId, providerId, payerId, planId }, dbClie
   return { patient, provider, payer, plan };
 }
 
+async function updateEncounterStatusIfCurrent(id, expectedStatus, nextStatus, dbClient = prisma) {
+  return dbClient.encounter.updateMany({
+    where: { id, status: expectedStatus },
+    data: { status: nextStatus },
+  });
+}
+
+async function countCodingPrerequisites(encounterId, dbClient = prisma) {
+  return dbClient.medicalRecord.count({ where: { encounterId } });
+}
+
+async function countValidationPrerequisites(encounterId, dbClient = prisma) {
+  const [totalValidations, failedValidations, acceptedSuggestions, pendingSuggestions] =
+    await Promise.all([
+      dbClient.validationResult.count({ where: { encounterId } }),
+      dbClient.validationResult.count({ where: { encounterId, status: 'FAILED' } }),
+      dbClient.codingSuggestion.count({
+        where: {
+          reviewStatus: { in: ['ACCEPTED', 'EDITED'] },
+          analysis: { record: { encounterId } },
+        },
+      }),
+      dbClient.codingSuggestion.count({
+        where: {
+          reviewStatus: 'SUGGESTED',
+          analysis: { record: { encounterId } },
+        },
+      }),
+    ]);
+  return { totalValidations, failedValidations, acceptedSuggestions, pendingSuggestions };
+}
+
+async function countSubmittedClaims(encounterId, dbClient = prisma) {
+  return dbClient.claim.count({
+    where: {
+      encounterId,
+      status: { in: ['SUBMITTED', 'IN_PROCESS', 'ACCEPTED', 'PAID', 'RESUBMITTED'] },
+      externalRef: { not: null },
+    },
+  });
+}
+
+async function countNonTerminalClaims(encounterId, dbClient = prisma) {
+  return dbClient.claim.count({
+    where: {
+      encounterId,
+      status: { notIn: ['PAID', 'DENIED', 'CLOSED'] },
+    },
+  });
+}
+
 module.exports = {
   ENCOUNTER_SELECT,
   createEncounter,
   findEncounterById,
   findEncounters,
   updateEncounterById,
+  updateEncounterStatusIfCurrent,
   countEncounterDependents,
+  countCodingPrerequisites,
+  countValidationPrerequisites,
+  countSubmittedClaims,
+  countNonTerminalClaims,
   deleteEncounterById,
   findReferences,
 };

@@ -242,7 +242,10 @@ class UserService {
 
       const updated = await userRepository.updateUserById(
         targetUserId,
-        { roleId: newRole.id },
+        {
+          roleId: newRole.id,
+          ...(newRole.id !== target.roleId ? { tokenVersion: { increment: 1 } } : {}),
+        },
         tx
       );
 
@@ -295,7 +298,10 @@ class UserService {
 
       const updated = await userRepository.updateUserById(
         targetUserId,
-        { isActive },
+        {
+          isActive,
+          ...(isActive !== target.isActive ? { tokenVersion: { increment: 1 } } : {}),
+        },
         tx
       );
 
@@ -370,26 +376,29 @@ class UserService {
   }
 
   static async changePassword(userId, { currentPassword, newPassword }, actor) {
-    const user = await userRepository.findUserWithPasswordById(userId);
-    if (!user) {
-      throw new ApiError(HTTP_STATUS.NOT_FOUND, 'USER_NOT_FOUND', 'User not found');
-    }
+    await runSerializableTransaction(async (tx) => {
+      const user = await userRepository.findUserWithPasswordById(userId, tx);
+      if (!user) {
+        throw new ApiError(HTTP_STATUS.NOT_FOUND, 'USER_NOT_FOUND', 'User not found');
+      }
 
-    const matches = await verifyPassword(currentPassword, user.passwordHash);
-    if (!matches) {
-      throw new ApiError(
-        HTTP_STATUS.UNAUTHORIZED,
-        'INVALID_CURRENT_PASSWORD',
-        'Current password is incorrect'
-      );
-    }
+      const matches = await verifyPassword(currentPassword, user.passwordHash);
+      if (!matches) {
+        throw new ApiError(
+          HTTP_STATUS.UNAUTHORIZED,
+          'INVALID_CURRENT_PASSWORD',
+          'Current password is incorrect'
+        );
+      }
 
-    const newHash = await hashPassword(newPassword);
+      const newHash = await hashPassword(newPassword);
 
-    await prisma.$transaction(async (tx) => {
       await userRepository.updateUserById(
         userId,
-        { passwordHash: newHash },
+        {
+          passwordHash: newHash,
+          tokenVersion: { increment: 1 },
+        },
         tx
       );
 

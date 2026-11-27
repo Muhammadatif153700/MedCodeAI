@@ -108,6 +108,16 @@ async function authenticate(req, _res, next) {
     );
   }
 
+  if ((user.tokenVersion ?? 0) !== payload.tokenVersion) {
+    return next(
+      new ApiError(
+        HTTP_STATUS.UNAUTHORIZED,
+        'TOKEN_REVOKED',
+        'Authentication token has been revoked'
+      )
+    );
+  }
+
   req.user = {
     id: user.id,
     name: user.name,

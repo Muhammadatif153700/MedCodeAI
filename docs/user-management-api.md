@@ -25,6 +25,6 @@ All endpoints require `authenticate` and operate strictly on `req.user.id`:
 * `PATCH /api/v1/profile` — Body: `{ name?, email? }` (rejects privilege fields via `.strict()`). Checks duplicate email (`409 EMAIL_ALREADY_IN_USE`), logs `USER_PROFILE_UPDATED`.
 * `PATCH /api/v1/profile/password` — Body: `{ currentPassword, newPassword }`. Verifies `currentPassword` (`401 INVALID_CURRENT_PASSWORD`), enforces `8..72` UTF-8 bytes, hashes with `bcryptjs`, logs `USER_PASSWORD_CHANGED`.
 
-### JWT Behavior After Password Change (Known Limitation)
-* Role changes and account disabling take effect **immediately** on the next request because `authenticate` reloads `role` and `isActive` from PostgreSQL.
-* Because `schema.prisma` currently has no `token_version` or `password_changed_at` column, **existing valid JWTs remain valid until their `exp` after a password change**. Adding `password_changed_at` / `token_version` is proposed as a Phase 9 enhancement if immediate token revocation is desired.
+### JWT Behavior After Password, Role, or Status Changes (`Phase 9B`)
+* `users.token_version` (`tokenVersion`) is embedded in JWTs as `tv` and verified against PostgreSQL on every request.
+* **Password changes, role changes, account disabling, and reactivation atomically increment `tokenVersion`**, immediately revoking all previously issued JWTs (`401 TOKEN_REVOKED`) without exposing `tokenVersion` in API responses.

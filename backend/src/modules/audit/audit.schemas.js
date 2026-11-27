@@ -2,6 +2,7 @@ const { z } = require('zod');
 const {
   AUDIT_ACTION_LIST,
   AUDIT_ENTITY_LIST,
+  ALLOW_NULL_ACTOR_ACTIONS,
   DEFAULT_PAGE,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
@@ -41,11 +42,11 @@ const createAuditLogSchema = z
   .object({
     userId: z
       .number({
-        required_error: 'userId is required',
         invalid_type_error: 'userId must be a positive integer',
       })
       .int('userId must be an integer')
-      .positive('userId must be a positive integer'),
+      .positive('userId must be a positive integer')
+      .nullable(),
     action: z.enum(AUDIT_ACTION_LIST, {
       errorMap: () => ({ message: 'Invalid or unsupported audit action' }),
     }),
@@ -64,7 +65,14 @@ const createAuditLogSchema = z
       .optional()
       .transform((val) => sanitizeIpAddress(val)),
   })
-  .strict();
+  .strict()
+  .refine(
+    (data) => data.userId !== null || ALLOW_NULL_ACTOR_ACTIONS.has(data.action),
+    {
+      message: 'userId is required for this audit action',
+      path: ['userId'],
+    }
+  );
 
 const listAuditLogsQuerySchema = z
   .object({

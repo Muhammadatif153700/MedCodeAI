@@ -29,7 +29,8 @@
   * Logs `ENCOUNTER_CREATED`.
 * `GET /api/v1/encounters` — Query: `page`, `limit`, `patientId`, `providerId`, `payerId`, `status`, `startDate`, `endDate`.
 * `GET /api/v1/encounters/:id` — Returns encounter with safe `patient`, `provider`, `payer`, `plan` projections.
-* `PATCH /api/v1/encounters/:id` — Enforces valid lifecycle transitions (`OPEN → CODING_IN_PROGRESS | CLOSED`, `CODING_IN_PROGRESS → VALIDATED | OPEN | CLOSED`, `VALIDATED → CLAIM_SUBMITTED | CODING_IN_PROGRESS | CLOSED`, `CLAIM_SUBMITTED → CLOSED`, `CLOSED → ∅`); rejects invalid transitions with `400 INVALID_STATUS_TRANSITION`.
+* `PATCH /api/v1/encounters/:id` — Metadata-only (`patientId`, `providerId`, `payerId`, `planId`, `encounterDate`, `placeOfService`) while `status === 'OPEN'` and zero dependent artifacts exist (`409 ENCOUNTER_LOCKED` / `409 DEPENDENT_RECORDS_EXIST`). Generic `status` changes are rejected (`400 VALIDATION_ERROR`).
+* **Workflow Transitions:** Handled internally via `EncounterService` (`startCoding`, `markValidated`, `markClaimSubmitted`, `closeEncounter`). See [encounter-lifecycle-contract.md](./encounter-lifecycle-contract.md).
 * `DELETE /api/v1/encounters/:id` — Permitted per `UC-06` only when no dependent `medicalRecords`, `validationResults`, `denialRisks`, `reports`, or `claims` exist (`409 DEPENDENT_RECORDS_EXIST`).
 
 ---

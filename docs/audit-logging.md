@@ -77,10 +77,11 @@ await AuditService.log({
 ---
 
 ## 4. Schema Limitations & Privacy Rules
-* **Schema Limitations (`schema.prisma`):**
-  1. `audit_logs.user_id` is non-nullable, so `USER_LOGIN_FAILED` can only be logged when a valid `userId` is resolved (unknown-email attempts cannot be persisted without a future nullable `user_id` migration).
+* **Schema Updates (`Phase 9B`):**
+  1. `audit_logs.user_id` is nullable (`Int?`) specifically for unauthenticated `USER_LOGIN_FAILED` events (`ALLOW_NULL_ACTOR_ACTIONS`); all business mutations still require a positive integer `userId` (`null` is rejected with `400 INVALID_AUDIT_INPUT`).
   2. `audit_logs.entity_id` is `Int?`, so string-PK code libraries (`icd10_codes`, `cpt_codes`, `hcpcs_codes`, `modifiers`) should pass `entity: AUDIT_ENTITIES.CODE_LIBRARY` with `entityId: null`.
-* **Privacy:** Never pass plaintext passwords, hashes, JWTs, headers, DB URLs, request bodies, clinical text, or PHI into `AuditService.log()`. Audit logs are strictly append-only (no update/delete methods or routes).
+* **DoS & Retention:** Failed-login DB writes are protected by `authRateLimiter` (`AUTH_RATE_LIMIT_MAX=20` per 15 min); archive/prune aged `USER_LOGIN_FAILED` rows periodically in production.
+* **Privacy:** Never pass plaintext passwords, attempted emails/passwords, hashes, JWTs, headers, DB URLs, request bodies, clinical text, or PHI into `AuditService.log()`. Audit logs are strictly append-only (no update/delete methods or routes).
 
 ---
 

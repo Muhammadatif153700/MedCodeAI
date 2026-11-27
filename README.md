@@ -36,10 +36,18 @@ AI-Powered Medical Coding and Claim Validation System
    npm run db:seed               # Run idempotent synthetic development seed
    npm run db:verify             # Run read-only SELECT 1 check on pooled & direct URLs
    ```
-7. Run automated tests:
+7. Guarded isolated test database commands (`backend/.env.test`, see [docs/integration-testing-guide.md](./docs/integration-testing-guide.md)):
+   ```bash
+   npm run test:db:verify         # Verify empty/current state on isolated test DB
+   npm run test:db:migrate:deploy # Deploy migrations to isolated test DB
+   npm run test:db:migrate:status # Check migration status on isolated test DB
+   npm run test:db:seed           # Run idempotent seed on isolated test DB
+   npm run test:db:integrity      # Verify 26 tables, 5 custom constraints, and Phase 9B columns
+   ```
+8. Run automated tests:
    ```bash
    npm test
    npm run test:coverage
    ```
 
-> **Note:** Phase 8 (`KAN-15`–`KAN-16`) is complete—all 13 `KAN-4` backend foundation tasks (`KAN-8`–`KAN-20`) are implemented alongside the 26-table schema on `ali_dev`. See [docs/user-management-api.md](./docs/user-management-api.md), [docs/medical-entities-api.md](./docs/medical-entities-api.md), [docs/authentication-rbac.md](./docs/authentication-rbac.md), and [docs/team-handover.md](./docs/team-handover.md). All medical data used in this project must be synthetic or de-identified.
+> **Note:** Phase 9B security & lifecycle hardening is complete locally (see [docs/phase9b-migration-guide.md](./docs/phase9b-migration-guide.md) and [docs/encounter-lifecycle-contract.md](./docs/encounter-lifecycle-contract.md)). **Security Notice:** `KAN-6` routes (`/payers/*`, `/validation/*`) remain unauthenticated (`F-03`); do not expose the combined backend publicly until secured. All medical data used in this project must be synthetic or de-identified.

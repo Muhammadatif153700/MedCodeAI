@@ -4,18 +4,21 @@ const { env, assertJwtConfigured } = require('../../config/env');
 const JWT_ALGORITHM = 'HS256';
 
 /**
- * Signs an access JWT with an explicit algorithm, subject, issuer, audience, and expiration.
- * Never embeds passwords, hashes, or unnecessary personal data.
- * @param {{ userId: number }} params
+ * Signs an access JWT with an explicit algorithm, subject, tokenVersion (tv),
+ * issuer, audience, and expiration.
+ * @param {{ userId: number, tokenVersion?: number }} params
  */
-function signAccessToken({ userId }) {
+function signAccessToken({ userId, tokenVersion = 0 }) {
   assertJwtConfigured(env);
 
-  if (!Number.isInteger(userId) || userId <= 0) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
     throw new Error('Invalid userId for JWT subject');
   }
+  if (!Number.isSafeInteger(tokenVersion) || tokenVersion < 0) {
+    throw new Error('Invalid tokenVersion for JWT');
+  }
 
-  return jwt.sign({}, env.JWT_SECRET, {
+  return jwt.sign({ tv: tokenVersion }, env.JWT_SECRET, {
     algorithm: JWT_ALGORITHM,
     subject: String(userId),
     expiresIn: env.JWT_EXPIRES_IN,
@@ -25,9 +28,10 @@ function signAccessToken({ userId }) {
 }
 
 /**
- * Verifies a JWT signature, algorithm, expiration, issuer, audience, and subject.
+ * Verifies a JWT signature, algorithm, expiration, issuer, audience, subject, and tv claim.
+ * Rejects legacy tokens missing the required integer tokenVersion claim.
  * @param {string} token
- * @returns {{ userId: number }}
+ * @returns {{ userId: number, tokenVersion: number }}
  */
 function verifyAccessToken(token) {
   assertJwtConfigured(env);
@@ -43,11 +47,15 @@ function verifyAccessToken(token) {
   }
 
   const userId = Number(decoded.sub);
-  if (!Number.isInteger(userId) || userId <= 0 || String(userId) !== decoded.sub) {
+  if (!Number.isSafeInteger(userId) || userId <= 0 || String(userId) !== decoded.sub) {
     throw new Error('Invalid token subject');
   }
 
-  return { userId };
+  if (!Number.isSafeInteger(decoded.tv) || decoded.tv < 0) {
+    throw new Error('Invalid or missing token version');
+  }
+
+  return { userId, tokenVersion: decoded.tv };
 }
 
 module.exports = {

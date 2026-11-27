@@ -8,9 +8,9 @@ const idParamSchema = z.object({
 });
 
 function isNotFutureDate(date) {
-  const now = new Date();
-  const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
-  return date <= todayUtc;
+  const inputDate = date.toISOString().slice(0, 10);
+  const todayDate = new Date().toISOString().slice(0, 10);
+  return inputDate <= todayDate;
 }
 
 const dobSchema = z.coerce

@@ -95,7 +95,7 @@ const encounter = await prisma.encounter.findUnique({
 * **Shared Prisma Client (`backend/src/config/prisma.js`):**
   `const { prisma, checkDatabaseHealth, disconnectPrisma } = require('../../config/prisma');`
 * **Core Medical Entity Lookups (`KAN-17`, `KAN-18`, `KAN-19`):**
-  * `const { getEncounterById } = require('../encounters');` — Returns encounter with safe `patient`, `provider`, `payer`, `plan` projections or throws `404 ENCOUNTER_NOT_FOUND`.
+  * `const { getEncounterById, startCoding, markValidated, markClaimSubmitted, closeEncounter } = require('../encounters');` — Safe encounter lookup and transaction-safe lifecycle transitions. See [encounter-lifecycle-contract.md](./encounter-lifecycle-contract.md).
   * `const { getPatientById } = require('../patients');` — Returns `Patient` or throws `404 PATIENT_NOT_FOUND`.
   * `const { getProviderById } = require('../providers');` — Returns `Provider` or throws `404 PROVIDER_NOT_FOUND`.
   * See [medical-entities-api.md](./medical-entities-api.md) for all endpoints and lifecycle rules.

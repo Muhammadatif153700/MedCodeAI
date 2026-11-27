@@ -133,41 +133,44 @@ class ProviderService {
   }
 
   static async deleteProvider(id, actor) {
-    const existing = await providerRepository.findProviderById(id);
-    if (!existing) {
-      throw new ApiError(
-        HTTP_STATUS.NOT_FOUND,
-        'PROVIDER_NOT_FOUND',
-        'Provider not found'
-      );
-    }
-
-    const dependentCount = await providerRepository.countProviderEncounters(id);
-    if (dependentCount > 0) {
-      throw new ApiError(
-        HTTP_STATUS.CONFLICT,
-        'DEPENDENT_RECORDS_EXIST',
-        'Cannot delete provider with existing encounters'
-      );
-    }
-
     try {
-      return await prisma.$transaction(async (tx) => {
-        const deleted = await providerRepository.deleteProviderById(id, tx);
+      return await prisma.$transaction(
+        async (tx) => {
+          const existing = await providerRepository.findProviderById(id, tx);
+          if (!existing) {
+            throw new ApiError(
+              HTTP_STATUS.NOT_FOUND,
+              'PROVIDER_NOT_FOUND',
+              'Provider not found'
+            );
+          }
 
-        await AuditService.log(
-          {
-            userId: actor.userId,
-            action: AUDIT_ACTIONS.PROVIDER_DELETED,
-            entity: AUDIT_ENTITIES.PROVIDER,
-            entityId: id,
-            ipAddress: actor.ipAddress,
-          },
-          { tx }
-        );
+          const dependentCount = await providerRepository.countProviderEncounters(id, tx);
+          if (dependentCount > 0) {
+            throw new ApiError(
+              HTTP_STATUS.CONFLICT,
+              'DEPENDENT_RECORDS_EXIST',
+              'Cannot delete provider with existing encounters'
+            );
+          }
 
-        return deleted;
-      });
+          const deleted = await providerRepository.deleteProviderById(id, tx);
+
+          await AuditService.log(
+            {
+              userId: actor.userId,
+              action: AUDIT_ACTIONS.PROVIDER_DELETED,
+              entity: AUDIT_ENTITIES.PROVIDER,
+              entityId: id,
+              ipAddress: actor.ipAddress,
+            },
+            { tx }
+          );
+
+          return deleted;
+        },
+        { isolationLevel: 'Serializable' }
+      );
     } catch (err) {
       if (err && err.code === 'P2003') {
         throw new ApiError(

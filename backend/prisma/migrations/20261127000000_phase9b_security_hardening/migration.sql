@@ -1,0 +1,9 @@
+BEGIN;
+
+ALTER TABLE "users"
+ADD COLUMN "token_version" INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE "audit_logs"
+ALTER COLUMN "user_id" DROP NOT NULL;
+
+COMMIT;

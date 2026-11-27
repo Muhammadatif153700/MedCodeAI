@@ -26,7 +26,7 @@ const app = require('../src/app');
 const { prisma } = require('../src/config/prisma');
 
 function signToken(sub = '3') {
-  return jwt.sign({}, process.env.JWT_SECRET, {
+  return jwt.sign({ tv: 0 }, process.env.JWT_SECRET, {
     algorithm: 'HS256',
     subject: String(sub),
     expiresIn: '1h',
@@ -140,12 +140,75 @@ describe('Providers Module (Phase 7 / KAN-18)', () => {
     ).toBe(404);
 
     mockAuthUser('ADMIN');
-    prisma.provider.findUnique.mockResolvedValueOnce({ id: 1, npi: '9000000001' });
-    prisma.encounter.count.mockResolvedValueOnce(3);
+    prisma.$transaction.mockImplementationOnce(async (fn) =>
+      fn({
+        provider: { findUnique: jest.fn().mockResolvedValueOnce({ id: 1, npi: '9000000001' }) },
+        encounter: { count: jest.fn().mockResolvedValueOnce(3) },
+      })
+    );
     const delBlocked = await request(app)
       .delete('/api/v1/providers/1')
       .set('Authorization', `Bearer ${token}`);
     expect(delBlocked.status).toBe(409);
     expect(delBlocked.body.error.code).toBe('DEPENDENT_RECORDS_EXIST');
+  });
+
+  test('Updates provider, rejects empty update & duplicate NPI on update, and deletes clean provider', async () => {
+    mockAuthUser('ADMIN');
+    const emptyUpd = await request(app)
+      .patch('/api/v1/providers/1')
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+    expect(emptyUpd.status).toBe(400);
+
+    mockAuthUser('ADMIN');
+    prisma.provider.findUnique
+      .mockResolvedValueOnce({ id: 1, npi: '9000000001' })
+      .mockResolvedValueOnce({ id: 2, npi: '9000000002' });
+    const dupUpd = await request(app)
+      .patch('/api/v1/providers/1')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ npi: '9000000002' });
+    expect(dupUpd.status).toBe(409);
+    expect(dupUpd.body.error.code).toBe('DUPLICATE_NPI');
+
+    mockAuthUser('ADMIN');
+    prisma.provider.findUnique.mockResolvedValueOnce({ id: 1, npi: '9000000001' });
+    prisma.$transaction.mockImplementationOnce(async (fn) =>
+      fn({
+        provider: {
+          update: jest.fn().mockResolvedValueOnce({
+            id: 1,
+            name: 'Dr. Updated',
+            npi: '9000000001',
+            specialty: 'Neurology',
+          }),
+        },
+        auditLog: { create: jest.fn().mockResolvedValueOnce({ id: 5 }) },
+      })
+    );
+    const okUpd = await request(app)
+      .patch('/api/v1/providers/1')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ specialty: 'Neurology' });
+    expect(okUpd.status).toBe(200);
+    expect(okUpd.body.data.provider.specialty).toBe('Neurology');
+
+    mockAuthUser('ADMIN');
+    prisma.$transaction.mockImplementationOnce(async (fn) =>
+      fn({
+        provider: {
+          findUnique: jest.fn().mockResolvedValueOnce({ id: 5, npi: '9000000005' }),
+          delete: jest.fn().mockResolvedValueOnce({ id: 5 }),
+        },
+        encounter: { count: jest.fn().mockResolvedValueOnce(0) },
+        auditLog: { create: jest.fn().mockResolvedValueOnce({ id: 6 }) },
+      })
+    );
+    const delOk = await request(app)
+      .delete('/api/v1/providers/5')
+      .set('Authorization', `Bearer ${token}`);
+    expect(delOk.status).toBe(200);
+    expect(delOk.body.data.deleted).toBe(true);
   });
 });

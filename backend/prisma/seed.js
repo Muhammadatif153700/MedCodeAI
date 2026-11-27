@@ -3,10 +3,12 @@ const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 
-dotenv.config({
-  path: path.resolve(__dirname, '../.env'),
-  quiet: true,
-});
+if (!(process.env.NODE_ENV === 'test' && process.env.TEST_APPROVED_ENDPOINTS)) {
+  dotenv.config({
+    path: path.resolve(__dirname, '../.env'),
+    quiet: true,
+  });
+}
 
 const BCRYPT_ROUNDS = 10;
 

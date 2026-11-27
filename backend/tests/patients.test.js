@@ -26,7 +26,7 @@ const app = require('../src/app');
 const { prisma } = require('../src/config/prisma');
 
 function signToken(sub = '3') {
-  return jwt.sign({}, process.env.JWT_SECRET, {
+  return jwt.sign({ tv: 0 }, process.env.JWT_SECRET, {
     algorithm: 'HS256',
     subject: String(sub),
     expiresIn: '1h',
@@ -177,8 +177,12 @@ describe('Patients Module (Phase 7 / KAN-17)', () => {
     expect(updRes.body.data.patient.name).toBe('Updated');
 
     mockAuthUser('ADMIN');
-    prisma.patient.findUnique.mockResolvedValueOnce({ id: 1, name: 'Updated' });
-    prisma.encounter.count.mockResolvedValueOnce(2);
+    prisma.$transaction.mockImplementationOnce(async (fn) =>
+      fn({
+        patient: { findUnique: jest.fn().mockResolvedValueOnce({ id: 1, name: 'Updated' }) },
+        encounter: { count: jest.fn().mockResolvedValueOnce(2) },
+      })
+    );
     const delBlocked = await request(app)
       .delete('/api/v1/patients/1')
       .set('Authorization', `Bearer ${token}`);
@@ -206,5 +210,34 @@ describe('Patients Module (Phase 7 / KAN-17)', () => {
       });
     expect(res.status).toBe(500);
     expect(res.body.error.code).toBe('AUDIT_LOG_FAILED');
+  });
+
+  test('Deletes patient cleanly when no dependent encounters exist and handles P2003', async () => {
+    mockAuthUser('ADMIN');
+    prisma.$transaction.mockImplementationOnce(async (fn) =>
+      fn({
+        patient: {
+          findUnique: jest.fn().mockResolvedValueOnce({ id: 12, name: 'Deletable' }),
+          delete: jest.fn().mockResolvedValueOnce({ id: 12, name: 'Deletable' }),
+        },
+        encounter: { count: jest.fn().mockResolvedValueOnce(0) },
+        auditLog: { create: jest.fn().mockResolvedValueOnce({ id: 9 }) },
+      })
+    );
+
+    const delOk = await request(app)
+      .delete('/api/v1/patients/12')
+      .set('Authorization', `Bearer ${token}`);
+    expect(delOk.status).toBe(200);
+    expect(delOk.body.data.deleted).toBe(true);
+
+    mockAuthUser('ADMIN');
+    prisma.$transaction.mockRejectedValueOnce({ code: 'P2003' });
+
+    const fkRace = await request(app)
+      .delete('/api/v1/patients/13')
+      .set('Authorization', `Bearer ${token}`);
+    expect(fkRace.status).toBe(409);
+    expect(fkRace.body.error.code).toBe('DEPENDENT_RECORDS_EXIST');
   });
 });

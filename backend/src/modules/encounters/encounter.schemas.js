@@ -60,7 +60,6 @@ const updateEncounterSchema = {
         .min(1, 'placeOfService is required')
         .max(50, 'placeOfService must not exceed 50 characters')
         .optional(),
-      status: z.enum(ENCOUNTER_STATUSES).optional(),
     })
     .strict()
     .refine((data) => Object.keys(data).length > 0, {

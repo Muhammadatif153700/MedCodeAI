@@ -86,8 +86,14 @@ class AuthService {
     const passwordMatches = await verifyPassword(password, hashToCompare);
 
     if (!user) {
-      // audit_logs.user_id is non-nullable in schema.prisma; log safe non-identifying security event.
-      console.warn('[SECURITY] Failed login attempt for unrecognized account');
+      await AuditService.log({
+        userId: null,
+        action: AUDIT_ACTIONS.USER_LOGIN_FAILED,
+        entity: AUDIT_ENTITIES.USER,
+        entityId: null,
+        ipAddress,
+      });
+
       throw new ApiError(
         HTTP_STATUS.UNAUTHORIZED,
         'INVALID_CREDENTIALS',
@@ -147,7 +153,10 @@ class AuthService {
       );
     }
 
-    const token = signAccessToken({ userId: user.id });
+    const token = signAccessToken({
+      userId: user.id,
+      tokenVersion: user.tokenVersion ?? 0,
+    });
 
     await AuditService.log({
       userId: user.id,

@@ -26,7 +26,7 @@ const app = require('../src/app');
 const { prisma } = require('../src/config/prisma');
 
 function signToken(sub = '1') {
-  return jwt.sign({}, process.env.JWT_SECRET, {
+  return jwt.sign({ tv: 0 }, process.env.JWT_SECRET, {
     algorithm: 'HS256',
     subject: String(sub),
     expiresIn: '1h',
@@ -43,6 +43,7 @@ function mockAuthUser(id = 1, roleName = 'ADMIN') {
     roleId: 1,
     isActive: true,
     accountStatus: 'APPROVED',
+    tokenVersion: 0,
     role: { id: 1, name: roleName },
   });
 }
@@ -292,5 +293,106 @@ describe('Administrator User & Role Management (Phase 8 / KAN-15)', () => {
 
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('CONCURRENT_MODIFICATION');
+  });
+
+  test('F-02 & F-07: Role assignment and status changes increment tokenVersion and cover 404/last-admin demotion', async () => {
+    mockAuthUser(1, 'ADMIN');
+    prisma.user.findUnique.mockResolvedValueOnce(null);
+    const notFound = await request(app)
+      .get('/api/v1/users/9999')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(notFound.status).toBe(404);
+
+    // Last-admin demotion blocked
+    mockAuthUser(1, 'ADMIN');
+    prisma.$transaction.mockImplementationOnce(async (fn) =>
+      fn({
+        user: {
+          findUnique: jest.fn().mockResolvedValueOnce({
+            id: 99,
+            isActive: true,
+            accountStatus: 'APPROVED',
+            roleId: 1,
+            role: { id: 1, name: 'ADMIN' },
+          }),
+          count: jest.fn().mockResolvedValueOnce(1),
+        },
+        role: { findUnique: jest.fn().mockResolvedValueOnce({ id: 3, name: 'CODER' }) },
+      })
+    );
+    const lastDemote = await request(app)
+      .patch('/api/v1/users/99/role')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ role: 'CODER' });
+    expect(lastDemote.status).toBe(409);
+    expect(lastDemote.body.error.code).toBe('LAST_ADMIN_PROTECTION');
+
+    // Successful role reassignment increments tokenVersion
+    mockAuthUser(1, 'ADMIN');
+    const txRoleUpdate = jest.fn().mockResolvedValueOnce({
+      id: 4,
+      name: 'Coder',
+      email: 'c@e.com',
+      roleId: 4,
+      isActive: true,
+      accountStatus: 'APPROVED',
+      createdAt: new Date(),
+      role: { id: 4, name: 'REVIEWER' },
+    });
+    prisma.$transaction.mockImplementationOnce(async (fn) =>
+      fn({
+        user: {
+          findUnique: jest.fn().mockResolvedValueOnce({
+            id: 4,
+            isActive: true,
+            accountStatus: 'APPROVED',
+            roleId: 3,
+            role: { id: 3, name: 'CODER' },
+          }),
+          update: txRoleUpdate,
+        },
+        role: { findUnique: jest.fn().mockResolvedValueOnce({ id: 4, name: 'REVIEWER' }) },
+        auditLog: { create: jest.fn().mockResolvedValueOnce({ id: 10 }) },
+      })
+    );
+    const roleOk = await request(app)
+      .patch('/api/v1/users/4/role')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ role: 'REVIEWER' });
+    expect(roleOk.status).toBe(200);
+    expect(txRoleUpdate.mock.calls[0][0].data.tokenVersion).toEqual({ increment: 1 });
+
+    // Reactivating disabled user increments tokenVersion so pre-disable tokens cannot become valid again
+    mockAuthUser(1, 'ADMIN');
+    const txStatusUpdate = jest.fn().mockResolvedValueOnce({
+      id: 4,
+      name: 'Coder',
+      email: 'c@e.com',
+      roleId: 4,
+      isActive: true,
+      accountStatus: 'APPROVED',
+      createdAt: new Date(),
+      role: { id: 4, name: 'REVIEWER' },
+    });
+    prisma.$transaction.mockImplementationOnce(async (fn) =>
+      fn({
+        user: {
+          findUnique: jest.fn().mockResolvedValueOnce({
+            id: 4,
+            isActive: false,
+            accountStatus: 'APPROVED',
+            role: { id: 4, name: 'REVIEWER' },
+          }),
+          update: txStatusUpdate,
+        },
+        auditLog: { create: jest.fn().mockResolvedValueOnce({ id: 11 }) },
+      })
+    );
+    const reactivate = await request(app)
+      .patch('/api/v1/users/4/status')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ isActive: true });
+    expect(reactivate.status).toBe(200);
+    expect(txStatusUpdate.mock.calls[0][0].data.tokenVersion).toEqual({ increment: 1 });
   });
 });

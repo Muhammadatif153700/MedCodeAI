@@ -60,8 +60,15 @@ const envSchema = z
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
   })
   .superRefine((data, ctx) => {
+    if (data.JWT_SECRET && data.JWT_SECRET.length < MIN_JWT_SECRET_LENGTH) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['JWT_SECRET'],
+        message: `JWT_SECRET must be at least ${MIN_JWT_SECRET_LENGTH} characters`,
+      });
+    }
     if (data.NODE_ENV === 'production') {
-      if (!data.JWT_SECRET || data.JWT_SECRET.length < MIN_JWT_SECRET_LENGTH) {
+      if (!data.JWT_SECRET) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['JWT_SECRET'],

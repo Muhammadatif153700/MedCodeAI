@@ -20,8 +20,8 @@ jest.mock('../src/config/prisma', () => ({
 const app = require('../src/app');
 const { prisma } = require('../src/config/prisma');
 
-function signToken(sub = '4') {
-  return jwt.sign({}, process.env.JWT_SECRET, {
+function signToken(sub = '4', tv = 0) {
+  return jwt.sign({ tv }, process.env.JWT_SECRET, {
     algorithm: 'HS256',
     subject: String(sub),
     expiresIn: '1h',
@@ -38,6 +38,7 @@ function mockAuthUser(overrides = {}) {
     roleId: 3,
     isActive: true,
     accountStatus: 'APPROVED',
+    tokenVersion: 0,
     createdAt: new Date('2026-11-26T00:00:00Z'),
     role: { id: 3, name: 'CODER' },
     ...overrides,
@@ -123,11 +124,17 @@ describe('Self-Service User Profile Management (Phase 8 / KAN-16)', () => {
     });
   });
 
-  test('Changes password after verifying currentPassword, hashes newPassword, and logs USER_PASSWORD_CHANGED', async () => {
+  test('Changes password inside Serializable tx, increments tokenVersion, and logs USER_PASSWORD_CHANGED', async () => {
     const oldHash = await bcrypt.hash('OldPassword#123', 10);
 
     mockAuthUser();
-    prisma.user.findUnique.mockResolvedValueOnce({ id: 4, passwordHash: oldHash });
+    prisma.$transaction.mockImplementationOnce(async (fn) =>
+      fn({
+        user: {
+          findUnique: jest.fn().mockResolvedValueOnce({ id: 4, passwordHash: oldHash }),
+        },
+      })
+    );
     const wrongCurrent = await request(app)
       .patch('/api/v1/profile/password')
       .set('Authorization', `Bearer ${token}`)
@@ -143,12 +150,14 @@ describe('Self-Service User Profile Management (Phase 8 / KAN-16)', () => {
     expect(longPw.status).toBe(400);
 
     mockAuthUser();
-    prisma.user.findUnique.mockResolvedValueOnce({ id: 4, passwordHash: oldHash });
     const txUserUpdate = jest.fn().mockResolvedValueOnce({ id: 4 });
     const txAuditCreate = jest.fn().mockResolvedValueOnce({ id: 2 });
     prisma.$transaction.mockImplementationOnce(async (fn) =>
       fn({
-        user: { update: txUserUpdate },
+        user: {
+          findUnique: jest.fn().mockResolvedValueOnce({ id: 4, passwordHash: oldHash }),
+          update: txUserUpdate,
+        },
         auditLog: { create: txAuditCreate },
       })
     );
@@ -160,9 +169,10 @@ describe('Self-Service User Profile Management (Phase 8 / KAN-16)', () => {
 
     expect(okPw.status).toBe(200);
     expect(okPw.body.data.passwordChanged).toBe(true);
-    const savedHash = txUserUpdate.mock.calls[0][0].data.passwordHash;
-    expect(savedHash).not.toBe('NewPassword#123');
-    await expect(bcrypt.compare('NewPassword#123', savedHash)).resolves.toBe(true);
+    const savedData = txUserUpdate.mock.calls[0][0].data;
+    expect(savedData.passwordHash).not.toBe('NewPassword#123');
+    expect(savedData.tokenVersion).toEqual({ increment: 1 });
+    await expect(bcrypt.compare('NewPassword#123', savedData.passwordHash)).resolves.toBe(true);
     expect(txAuditCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: 4,
@@ -173,20 +183,29 @@ describe('Self-Service User Profile Management (Phase 8 / KAN-16)', () => {
     });
   });
 
-  test('Documents/verifies current JWT behavior: role & disable apply immediately, whereas existing JWT remains valid after password change until exp', async () => {
-    // After password change, existing valid JWT still passes authenticate() because schema has no tokenVersion/passwordChangedAt
-    mockAuthUser();
-    mockAuthUser();
+  test('F-02: Password change, disable, and reactivation invalidate old JWTs immediately', async () => {
+    // Old token (tv: 0) is rejected after DB tokenVersion incremented to 1
+    mockAuthUser({ tokenVersion: 1 });
     const resAfterPw = await request(app)
       .get('/api/v1/profile')
       .set('Authorization', `Bearer ${token}`);
-    expect(resAfterPw.status).toBe(200);
+    expect(resAfterPw.status).toBe(401);
+    expect(resAfterPw.body.error.code).toBe('TOKEN_REVOKED');
 
-    // After disabling user in DB, existing JWT is immediately rejected with 403 ACCOUNT_DISABLED
-    mockAuthUser({ isActive: false });
+    // New token issued with tv: 1 succeeds
+    const newToken = signToken('4', 1);
+    mockAuthUser({ tokenVersion: 1 });
+    mockAuthUser({ tokenVersion: 1 });
+    const resNewToken = await request(app)
+      .get('/api/v1/profile')
+      .set('Authorization', `Bearer ${newToken}`);
+    expect(resNewToken.status).toBe(200);
+
+    // After disabling user in DB, token is rejected with 403 ACCOUNT_DISABLED
+    mockAuthUser({ isActive: false, tokenVersion: 2 });
     const resDisabled = await request(app)
       .get('/api/v1/profile')
-      .set('Authorization', `Bearer ${token}`);
+      .set('Authorization', `Bearer ${newToken}`);
     expect(resDisabled.status).toBe(403);
     expect(resDisabled.body.error.code).toBe('ACCOUNT_DISABLED');
   });

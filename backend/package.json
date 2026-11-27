@@ -13,7 +13,12 @@
     "prisma:migrate:status": "npx prisma migrate status",
     "prisma:migrate:deploy": "npx prisma migrate deploy",
     "db:seed": "node prisma/seed.js",
-    "db:verify": "node scripts/verify-db.js"
+    "db:verify": "node scripts/verify-db.js",
+    "test:db:verify": "node scripts/run-test-db.js verify",
+    "test:db:migrate:deploy": "node scripts/run-test-db.js migrate-deploy",
+    "test:db:migrate:status": "node scripts/run-test-db.js migrate-status",
+    "test:db:seed": "node scripts/run-test-db.js seed",
+    "test:db:integrity": "node scripts/run-test-db.js integrity"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

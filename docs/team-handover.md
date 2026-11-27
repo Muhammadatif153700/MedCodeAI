@@ -1,6 +1,6 @@
 # MedCodeAI — Team Handover & Onboarding Guide (Milestone 1)
 
-> **Current Implementation Status:** All 13 `KAN-4` tasks (`KAN-8`–`KAN-20`) are complete: Express 5 skeleton, Neon PostgreSQL + Prisma 6.19.3, 26-table schema, initial SQL migration + PostgreSQL constraints, synthetic seed, Shared Audit Logging, Registration/JWT/RBAC, Patients/Providers/Encounters CRUD, and User/Role/Profile Management.
+> **Current Implementation Status:** All 13 `KAN-4` tasks (`KAN-8`–`KAN-20`) plus **Phase 9B security & lifecycle hardening** (`tokenVersion` JWT revocation, nullable `audit_logs.user_id`, and strict `EncounterService` transitions) are implemented and tested locally. Migration `20261127000000_phase9b_security_hardening` awaits approval before applying to Neon (see [phase9b-migration-guide.md](./phase9b-migration-guide.md)). **Note:** `KAN-6` endpoints remain unauthenticated (`F-03`); do not expose the combined backend publicly until Atif wires `authenticate`/`authorize`.
 
 ---
 
