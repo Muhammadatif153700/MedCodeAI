@@ -1,0 +1,1399 @@
+openapi: 3.0.3
+info:
+  title: MedCodeAI Backend API (KAN-4)
+  version: 1.0.0
+  description: |
+    Verified OpenAPI 3.0.3 specification for all **KAN-4** endpoints (`KAN-8` through `KAN-20`):
+    Health, Authentication, RBAC, Administrator User & Role Management, Self-Service Profile,
+    Patients, Providers, Encounters, and Audit Logs.
+
+    - **Teammate Scope Notice:** Teammate-owned `KAN-6` endpoints (`/api/v1/payers/*`, `/api/v1/validation/*`)
+      are not part of this verified `KAN-4` specification.
+    - **Internal Lifecycle APIs:** `EncounterService` transitions (`startCoding`, `markValidated`,
+      `markClaimSubmitted`, `closeEncounter`) are internal transaction-safe service methods and are not
+      exposed as public HTTP endpoints.
+servers:
+  - url: /api/v1
+    description: API v1 Base Path (Current Host)
+tags:
+  - name: Health
+    description: Application liveness and database readiness endpoints
+  - name: Authentication
+    description: Public registration, login, and authenticated session inspection
+  - name: Profile
+    description: Self-service authenticated user profile and password management
+  - name: Admin Users
+    description: Administrator user approval, rejection, role assignment, and status management
+  - name: Roles
+    description: Administrator business role listing
+  - name: Audit Logs
+    description: Administrator-only append-only security and entity audit trail
+  - name: Patients
+    description: Patient management (ADMIN, BILLING_SPECIALIST, CODER)
+  - name: Providers
+    description: Healthcare provider management (ADMIN, BILLING_SPECIALIST, CODER)
+  - name: Encounters
+    description: Patient encounter management (ADMIN, BILLING_SPECIALIST, CODER)
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RoleName:
+      type: string
+      enum: [ADMIN, BILLING_SPECIALIST, CODER, REVIEWER]
+    AccountStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED]
+    EncounterStatus:
+      type: string
+      enum: [OPEN, CODING_IN_PROGRESS, VALIDATED, CLAIM_SUBMITTED, CLOSED]
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 1
+    ErrorDetail:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Request validation failed
+        details:
+          type: array
+          items:
+            type: object
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+    UserPublic:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Synthetic Staff
+        email:
+          type: string
+          format: email
+          example: staff.demo@medcodeai.test
+        role:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/RoleName'
+        roleId:
+          type: integer
+          nullable: true
+          example: 3
+        accountStatus:
+          $ref: '#/components/schemas/AccountStatus'
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+    RoleItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          $ref: '#/components/schemas/RoleName'
+    Patient:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 10
+        name:
+          type: string
+          example: Synthetic Patient
+        dob:
+          type: string
+          format: date-time
+        gender:
+          type: string
+          example: Female
+        memberId:
+          type: string
+          example: SYN-MEM-1001
+    Provider:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 5
+        name:
+          type: string
+          example: Dr. Synthetic Provider
+        npi:
+          type: string
+          pattern: '^\d{10}$'
+          example: '0012345678'
+        specialty:
+          type: string
+          example: Cardiology
+    Encounter:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 12
+        patientId:
+          type: integer
+          example: 10
+        providerId:
+          type: integer
+          example: 5
+        payerId:
+          type: integer
+          example: 1
+        planId:
+          type: integer
+          example: 1
+        encounterDate:
+          type: string
+          format: date-time
+        placeOfService:
+          type: string
+          example: '11'
+        status:
+          $ref: '#/components/schemas/EncounterStatus'
+    AuditLogItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 100
+        userId:
+          type: integer
+          nullable: true
+          example: 1
+        action:
+          type: string
+          example: USER_LOGIN_SUCCESS
+        entity:
+          type: string
+          example: USER
+        entityId:
+          type: integer
+          nullable: true
+          example: 1
+        ipAddress:
+          type: string
+          nullable: true
+          example: 127.0.0.1
+        timestamp:
+          type: string
+          format: date-time
+        user:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            email:
+              type: string
+  responses:
+    UnauthorizedError:
+      description: Missing, invalid, expired, or revoked JWT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: INVALID_TOKEN
+              message: Invalid or expired authentication token
+    ForbiddenError:
+      description: Authenticated user lacks required role or account permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: FORBIDDEN
+              message: Insufficient permissions for this resource
+    ValidationError:
+      description: Zod request validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: VALIDATION_ERROR
+              message: Request validation failed
+    NotFoundError:
+      description: Requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ConflictError:
+      description: Resource uniqueness or dependent-record conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Application liveness check
+      responses:
+        '200':
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      service:
+                        type: string
+                        example: MedCodeAI API
+                      status:
+                        type: string
+                        example: ok
+  /health/db:
+    get:
+      tags: [Health]
+      summary: Database readiness check
+      responses:
+        '200':
+          description: Database connection is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        example: connected
+        '503':
+          description: Database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Public user registration (creates PENDING account with null roleId)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  example: Synthetic New Staff
+                email:
+                  type: string
+                  format: email
+                  maxLength: 255
+                  example: new.staff@medcodeai.test
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 72
+                  example: SyntheticPass#2026!
+      responses:
+        '201':
+          description: User registered in PENDING status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/UserPublic'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate approved user and issue Bearer JWT with tokenVersion (tv) claim
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: admin.demo@medcodeai.local
+                password:
+                  type: string
+                  minLength: 1
+                  example: SyntheticPassword123!
+      responses:
+        '200':
+          description: Login succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                      user:
+                        $ref: '#/components/schemas/UserPublic'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current authenticated user session
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Authenticated user details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/UserPublic'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /profile:
+    get:
+      tags: [Profile]
+      summary: Retrieve authenticated user's own profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/UserPublic'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    patch:
+      tags: [Profile]
+      summary: Update authenticated user's own name or email
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                email:
+                  type: string
+                  format: email
+                  maxLength: 255
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/UserPublic'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+  /profile/password:
+    patch:
+      tags: [Profile]
+      summary: Change authenticated user's password and revoke prior JWTs
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                  minLength: 1
+                newPassword:
+                  type: string
+                  minLength: 8
+                  maxLength: 72
+      responses:
+        '200':
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: Password updated successfully
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /users/pending:
+    get:
+      tags: [Admin Users]
+      summary: List pending user registrations (ADMIN only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pending users list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserPublic'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /users:
+    get:
+      tags: [Admin Users]
+      summary: List users with filtering and pagination (ADMIN only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: role
+          schema:
+            $ref: '#/components/schemas/RoleName'
+        - in: query
+          name: roleId
+          schema:
+            type: integer
+        - in: query
+          name: accountStatus
+          schema:
+            $ref: '#/components/schemas/AccountStatus'
+        - in: query
+          name: isActive
+          schema:
+            type: string
+            enum: ['true', 'false']
+      responses:
+        '200':
+          description: Paginated user list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserPublic'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /users/{id}:
+    get:
+      tags: [Admin Users]
+      summary: Retrieve single user by ID (ADMIN only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: User retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/UserPublic'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /users/{id}/approve:
+    patch:
+      tags: [Admin Users]
+      summary: Approve pending user and assign business role (ADMIN only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                role:
+                  $ref: '#/components/schemas/RoleName'
+                roleId:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: User approved
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /users/{id}/reject:
+    patch:
+      tags: [Admin Users]
+      summary: Reject pending user registration (ADMIN only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: User rejected
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /users/{id}/role:
+    patch:
+      tags: [Admin Users]
+      summary: Reassign approved user's business role and revoke prior JWTs (ADMIN only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                role:
+                  $ref: '#/components/schemas/RoleName'
+                roleId:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: Role reassigned
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+  /users/{id}/status:
+    patch:
+      tags: [Admin Users]
+      summary: Activate or disable user account and revoke prior JWTs on change (ADMIN only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [isActive]
+              properties:
+                isActive:
+                  type: boolean
+      responses:
+        '200':
+          description: Status updated
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+  /roles:
+    get:
+      tags: [Roles]
+      summary: List all business roles (ADMIN only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Role list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RoleItem'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /audit-logs:
+    get:
+      tags: [Audit Logs]
+      summary: Query append-only audit logs (ADMIN only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: userId
+          schema:
+            type: integer
+        - in: query
+          name: action
+          schema:
+            type: string
+        - in: query
+          name: entity
+          schema:
+            type: string
+        - in: query
+          name: entityId
+          schema:
+            type: integer
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Paginated audit log list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLogItem'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /patients:
+    post:
+      tags: [Patients]
+      summary: Create patient (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, dob, gender, memberId]
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 120
+                dob:
+                  type: string
+                  format: date
+                gender:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                memberId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+      responses:
+        '201':
+          description: Patient created
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+    get:
+      tags: [Patients]
+      summary: List patients with search and pagination (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: gender
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated patient list
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /patients/{id}:
+    get:
+      tags: [Patients]
+      summary: Get patient by ID (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Patient retrieved
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      tags: [Patients]
+      summary: Update patient (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                dob:
+                  type: string
+                  format: date
+                gender:
+                  type: string
+                memberId:
+                  type: string
+      responses:
+        '200':
+          description: Patient updated
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags: [Patients]
+      summary: Delete patient if no dependent encounters exist (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Patient deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+  /providers:
+    post:
+      tags: [Providers]
+      summary: Create provider with unique 10-digit string NPI (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, npi, specialty]
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 120
+                npi:
+                  type: string
+                  pattern: '^\d{10}$'
+                specialty:
+                  type: string
+                  minLength: 2
+                  maxLength: 120
+      responses:
+        '201':
+          description: Provider created
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+    get:
+      tags: [Providers]
+      summary: List providers with search, specialty filter, and pagination (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: specialty
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated provider list
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /providers/{id}:
+    get:
+      tags: [Providers]
+      summary: Get provider by ID (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Provider retrieved
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      tags: [Providers]
+      summary: Update provider (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                npi:
+                  type: string
+                  pattern: '^\d{10}$'
+                specialty:
+                  type: string
+      responses:
+        '200':
+          description: Provider updated
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+    delete:
+      tags: [Providers]
+      summary: Delete provider if no dependent encounters exist (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Provider deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+  /encounters:
+    post:
+      tags: [Encounters]
+      summary: Create encounter in OPEN status with payer-plan ownership validation (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [patientId, providerId, payerId, planId, encounterDate, placeOfService]
+              properties:
+                patientId:
+                  type: integer
+                providerId:
+                  type: integer
+                payerId:
+                  type: integer
+                planId:
+                  type: integer
+                encounterDate:
+                  type: string
+                  format: date
+                placeOfService:
+                  type: string
+      responses:
+        '201':
+          description: Encounter created in OPEN status
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    get:
+      tags: [Encounters]
+      summary: List encounters with filtering and pagination (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: patientId
+          schema:
+            type: integer
+        - in: query
+          name: providerId
+          schema:
+            type: integer
+        - in: query
+          name: payerId
+          schema:
+            type: integer
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/EncounterStatus'
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Paginated encounter list
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /encounters/{id}:
+    get:
+      tags: [Encounters]
+      summary: Get encounter by ID (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Encounter retrieved
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      tags: [Encounters]
+      summary: Update OPEN encounter metadata without dependent artifacts (status changes rejected)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                patientId:
+                  type: integer
+                providerId:
+                  type: integer
+                payerId:
+                  type: integer
+                planId:
+                  type: integer
+                encounterDate:
+                  type: string
+                  format: date
+                placeOfService:
+                  type: string
+      responses:
+        '200':
+          description: Encounter metadata updated
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+    delete:
+      tags: [Encounters]
+      summary: Delete empty OPEN encounter (ADMIN, BILLING_SPECIALIST, CODER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Encounter deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'

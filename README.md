@@ -44,11 +44,17 @@ AI-Powered Medical Coding and Claim Validation System
    npm run test:db:seed           # Run idempotent seed on isolated test DB
    npm run test:db:integrity      # Verify 26 tables, 5 custom constraints, and Phase 9B columns
    ```
-8. Run automated tests:
+8. API Documentation & Postman (`Phase 9E`):
+   - Swagger UI (dev/test): `http://localhost:5000/api-docs` (`GET /api-docs/openapi.json`)
+   - OpenAPI 3.0.3 spec: `backend/docs/openapi.yaml` (`npm run docs:validate`)
+   - Postman Collection & Env: `postman/MedCodeAI-KAN4.postman_collection.json`, `postman/MedCodeAI-Local.postman_environment.json`
+   - Demonstration & Teammate Guides: [docs/kan4-demonstration-guide.md](./docs/kan4-demonstration-guide.md), [docs/kan4-api-quick-reference.md](./docs/kan4-api-quick-reference.md)
+9. Run automated tests:
    ```bash
-   npm test                # Run mocked unit test suites (16 suites)
-   npm run test:coverage   # Run mocked unit tests with coverage
+   npm test                 # Run mocked unit test suites (17 suites)
+   npm run test:coverage    # Run mocked unit tests with coverage
    npm run test:integration # Run real PostgreSQL integration tests (9 suites) against .env.test
+   npm run test:newman      # Run Newman Postman collection against isolated .env.test server
    ```
 
 > **Note:** Phase 9B security & lifecycle hardening is complete locally (see [docs/phase9b-migration-guide.md](./docs/phase9b-migration-guide.md) and [docs/encounter-lifecycle-contract.md](./docs/encounter-lifecycle-contract.md)). **Security Notice:** `KAN-6` routes (`/payers/*`, `/validation/*`) remain unauthenticated (`F-03`); do not expose the combined backend publicly until secured. All medical data used in this project must be synthetic or de-identified.
