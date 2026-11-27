@@ -46,20 +46,13 @@ describe('Combined Router Integration (KAN-4 + KAN-6)', () => {
     expect((await request(app).get('/api/v1/audit-logs')).status).toBe(401);
   });
 
-  test('KAN-6 /payers and /validation routers are mounted cleanly', async () => {
-    mockIcd10FindMany.mockResolvedValueOnce([
-      { code: 'SYN-ICD-001', description: 'Synthetic fixture' },
-    ]);
-
+  test('KAN-6 /payers and /validation routers are mounted cleanly and require authentication', async () => {
     const payersRes = await request(app).get('/api/v1/payers/icd10');
-    expect(payersRes.status).toBe(200);
-    expect(payersRes.body.success).toBe(true);
-    expect(payersRes.body.data).toHaveLength(1);
+    expect(payersRes.status).toBe(401);
 
     const valRes = await request(app)
       .post('/api/v1/validation/process-encounter')
       .send({});
-    expect(valRes.status).toBe(400);
-    expect(valRes.body.error.code).toBe('MISSING_FIELDS');
+    expect(valRes.status).toBe(401);
   });
 });

@@ -8,7 +8,7 @@ const encounterRepository = require('./encounter.repository');
 const SERIALIZABLE_TX = {
   isolationLevel: 'Serializable',
   maxWait: 10000,
-  timeout: 15000,
+  timeout: 30000,
 };
 
 const ALLOWED_ENCOUNTER_TRANSITIONS = Object.freeze({

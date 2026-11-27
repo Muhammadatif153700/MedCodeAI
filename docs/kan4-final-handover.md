@@ -51,9 +51,11 @@ All 13 `KAN-4` subtasks are **implemented, security-hardened, and verified** on 
 
 ---
 
-## 5. Teammate Integration Blockers (`KAN-6` in `origin/dev`)
-1. `payers.routes.js` & `validation.routes.js`: `authorize([ROLES...])` passes an array to variadic `authorize(...allowedRoles)` -> crashes app boot (`Invalid role configured in authorize(): ADMIN,CODER`).
-2. `payers.controller.js`, `validation.routes.js`, `validation.service.js`: `const prisma = require('../../config/prisma')` instead of `const { prisma } = require('../../config/prisma')`.
-3. `validation.service.js`: `const env = require('../../config/env')` instead of `const { env } = require('../../config/env')` (plus `ML_API_URL` missing from `envSchema`).
-4. `payers.controller.js`: `AuditService.log(req.user.id, AUDIT_ACTIONS.CREATE, AUDIT_ENTITIES.ICD10, code.id)` uses positional args and undefined constants instead of `{ userId, action, entity, entityId, ipAddress }`.
-5. `validation.service.js` / `validation.routes.js`: must clear/replace prior `ValidationResult` rows and call `EncounterService.markValidated(encounterId, actor, { tx })` inside a transaction.
+## 5. Teammate Integration Status (`KAN-6` Compatibility Repaired Locally)
+All 5 `KAN-6` compatibility defects introduced by `origin/dev` (`1756fd4`, `d59e986`) have been **repaired non-destructively** on `feature/kan-4-backend` (see [kan6-compatibility-repair.md](./kan6-compatibility-repair.md)):
+1. `payers.routes.js` & `validation.routes.js`: converted `authorize([...])` to variadic `authorize(...)` + shared `validate` middleware.
+2. `payers.controller.js`, `validation.routes.js`, `validation.service.js`: switched to `{ prisma }` and `{ env }` destructuring.
+3. `env.js`, `.env.example`, `.env.test.example`: added optional validated `ML_API_URL` and `ML_API_TIMEOUT_MS` (`10000`).
+4. `payers.controller.js` & `validation.routes.js`: wired atomic `AuditService.log({ ... }, { tx })` calls.
+5. `validation.routes.js` & `validation.service.js`: external ML call runs outside DB tx; DB writes + `CLAIM_VALIDATED` audit + conditional `markValidated()` run inside `Serializable` tx.
+*(Remaining: real Python ML service end-to-end test when `ML_API_URL` is running, and team agreement on `ValidationResult` revalidation retention vs replacement.)*

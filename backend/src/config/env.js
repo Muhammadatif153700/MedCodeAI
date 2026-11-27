@@ -58,6 +58,23 @@ const envSchema = z
     JWT_AUDIENCE: z.string().trim().min(1).optional().default('medcodeai-client'),
     AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
+    ML_API_URL: z
+      .string()
+      .optional()
+      .default('')
+      .refine(
+        (val) => {
+          if (!val) return true;
+          try {
+            const parsed = new URL(val);
+            return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+          } catch {
+            return false;
+          }
+        },
+        { message: 'ML_API_URL must be a valid http:// or https:// URL' }
+      ),
+    ML_API_TIMEOUT_MS: z.coerce.number().int().min(500).max(60000).default(10000),
   })
   .superRefine((data, ctx) => {
     if (data.JWT_SECRET && data.JWT_SECRET.length < MIN_JWT_SECRET_LENGTH) {
