@@ -1,16 +1,21 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../../config/prisma'); // Shared Prisma singleton
+const axios = require('axios');
+const env = require('../../config/env');
+const ApiError = require('../../utils/ApiError');
+const HTTP_STATUS = require('../../constants/httpStatus');
 
 // KAN-41: Integrate Custom ML Service
 exports.analyzeMedicalText = async (text) => {
   try {
-    return {
-      icd10_codes: [{ code: "E11.9", description: "Type 2 diabetes", supportingText: "Patient has diabetes", reason: "Documented" }],
-      cpt_codes: [{ code: "99213", description: "Office visit", supportingText: "Checked blood sugar", reason: "Standard visit", units: 1 }],
-      modifiers: [{ code: "25" }]
-    };
+    // Use actual ML API from env
+    if (!env.ML_API_URL) {
+        throw new Error("ML_API_URL is not configured in .env");
+    }
+    const response = await axios.post(env.ML_API_URL, { text });
+    return response.data;
   } catch (error) {
-    throw new Error("ML Analysis failed");
+    console.error("ML Service Error:", error.message);
+    throw new ApiError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'ML_SERVICE_FAILED', 'AI Analysis service is currently unavailable.');
   }
 };
 
@@ -24,7 +29,7 @@ exports.validateClaim = async (encounterId, mlOutput) => {
     include: { payer: { include: { payerRules: true } }, plan: true }
   });
 
-  if (!encounter) throw new Error("Encounter not found");
+  if (!encounter) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'NOT_FOUND', 'Encounter not found');
 
   if (encounter.plan && encounter.plan.authRequired) {
     results.push({
