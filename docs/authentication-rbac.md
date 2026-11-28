@@ -24,7 +24,7 @@
 
 ## 2. JWT & Middleware Contracts
 
-* **JWT Config:** `JWT_SECRET` (min 32 chars, no insecure default), `JWT_EXPIRES_IN=1h`, `JWT_ISSUER=medcodeai-api`, `JWT_AUDIENCE=medcodeai-client`, fixed `HS256` algorithm.
+* **JWT Config:** `JWT_SECRET` (min 32 chars, no insecure default), `JWT_EXPIRES_IN=1h`, `JWT_ISSUER=medcodeai-api`, `JWT_AUDIENCE=medcodeai-client`, fixed `HS256` algorithm, required integer `tv` (`tokenVersion`) claim.
 * **Import Paths (from `backend/src/modules/<module>/`):**
   ```js
   const { authenticate } = require('../../middleware/auth.middleware');
@@ -42,7 +42,7 @@
     accountStatus: 'APPROVED',
   }
   ```
-* **Revocation / Role Changes:** Because `authenticate` queries PostgreSQL on every request, disabling an account or changing its role takes effect immediately on the next request without waiting for JWT expiration.
+* **Revocation / Role Changes:** Because `authenticate` reloads `role`, `isActive`, and `tokenVersion` from PostgreSQL on every request, **password changes, account disabling, reactivation, and role changes immediately invalidate all previously issued JWTs (`401 TOKEN_REVOKED`)**. Legacy tokens missing `tv` are also rejected (`401 INVALID_TOKEN`).
 
 ---
 

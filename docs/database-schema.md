@@ -63,7 +63,10 @@ All **26 tables** are preserved in `backend/prisma/schema.prisma`.
 | `medical_records.created_at` | Not shown | `DateTime @default(now())` | Required for `UC-08` date filtering and sorting. |
 | `coding_suggestions.review_comment` | Not shown | `String?` | Required by `FR-15`, `UC-15`, and `SEQ-3` to store reviewer comments on edits/rejections. |
 | `coding_suggestions.reviewed_by` | Mandatory-looking FK line | Nullable `Int?` | A suggestion starts as `SUGGESTED` before any Reviewer acts (`UC-12`–`UC-15`). |
-| `claims.submitted_by` | Mandatory-looking FK line | Nullable `Int?` | A claim exists in `DRAFT`/`VALIDATED`/`READY` states before submission (`UC-25`, `UC-26`). |
+| `users.token_version` | Not shown | `Int @default(0)` (`Phase 9B`) | Enables immediate JWT revocation on password, role, or active-status changes (`F-02`). |
+| `audit_logs.user_id` | Non-nullable `Int` | Nullable `Int?` (`Phase 9B`) | Allows persisting `USER_LOGIN_FAILED` for unknown-email attempts without fabricating a user ID (`F-05`). |
+
+*(Note: `encounters_plan_payer_fkey` remains an intentional PostgreSQL-only composite FK in `20261125000000_init/migration.sql`.)*
 
 ---
 

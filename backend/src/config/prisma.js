@@ -6,6 +6,10 @@ const globalForPrisma = globalThis;
 function createPrismaClient() {
   return new PrismaClient({
     log: env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+    transactionOptions: {
+      maxWait: 10000,
+      timeout: 30000,
+    },
   });
 }
 

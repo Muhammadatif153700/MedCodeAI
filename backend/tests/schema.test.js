@@ -103,4 +103,18 @@ describe('Prisma Schema Contract Verification (Phase 3 / KAN-10)', () => {
     expect(sql).toContain('encounters_plan_payer_fkey');
     expect(sql).toContain('users_approved_requires_role');
   });
+
+  test('Phase 9B forward-only migration adds token_version and nullable audit_logs.user_id without destructive DDL', () => {
+    const p9bPath = path.resolve(
+      __dirname,
+      '../prisma/migrations/20261127000000_phase9b_security_hardening/migration.sql'
+    );
+    const sql = fs.readFileSync(p9bPath, 'utf8');
+
+    expect(sql).not.toMatch(/\bDROP\s+TABLE\b/i);
+    expect(sql).not.toMatch(/\bDROP\s+COLUMN\b/i);
+    expect(sql).not.toMatch(/\bTRUNCATE\b/i);
+    expect(sql).toContain('ADD COLUMN "token_version" INTEGER NOT NULL DEFAULT 0');
+    expect(sql).toContain('ALTER COLUMN "user_id" DROP NOT NULL');
+  });
 });

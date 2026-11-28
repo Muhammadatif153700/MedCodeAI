@@ -10,6 +10,7 @@ const ApiError = require('./utils/ApiError');
 const requestIdMiddleware = require('./middleware/requestId.middleware');
 const { notFoundHandler, errorHandler } = require('./middleware/error.middleware');
 const apiV1Router = require('./routes');
+const { mountSwaggerDocs } = require('./config/swagger');
 
 const app = express();
 
@@ -66,6 +67,7 @@ if (env.NODE_ENV !== 'test') {
 }
 
 app.use('/api/v1', apiV1Router);
+mountSwaggerDocs(app, env.NODE_ENV);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

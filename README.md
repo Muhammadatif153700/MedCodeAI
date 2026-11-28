@@ -36,10 +36,26 @@ AI-Powered Medical Coding and Claim Validation System
    npm run db:seed               # Run idempotent synthetic development seed
    npm run db:verify             # Run read-only SELECT 1 check on pooled & direct URLs
    ```
-7. Run automated tests:
+7. Guarded isolated test database commands (`backend/.env.test`, see [docs/integration-testing-guide.md](./docs/integration-testing-guide.md)):
    ```bash
-   npm test
-   npm run test:coverage
+   npm run test:db:verify         # Verify empty/current state on isolated test DB
+   npm run test:db:migrate:deploy # Deploy migrations to isolated test DB
+   npm run test:db:migrate:status # Check migration status on isolated test DB
+   npm run test:db:seed           # Run idempotent seed on isolated test DB
+   npm run test:db:integrity      # Verify 26 tables, 5 custom constraints, and Phase 9B columns
+   npm run test:db:upgrade        # Verify existing-data upgrade on medcodeai_upgrade_test (.env.upgrade.test)
+   ```
+8. API Documentation & Postman (`Phase 9E`):
+   - Swagger UI (dev/test): `http://localhost:5000/api-docs` (`GET /api-docs/openapi.json`)
+   - OpenAPI 3.0.3 spec: `backend/docs/openapi.yaml` (`npm run docs:validate`)
+   - Postman Collection & Env: `postman/MedCodeAI-KAN4.postman_collection.json`, `postman/MedCodeAI-Local.postman_environment.json`
+   - Demonstration, CI & Teammate Guides: [docs/kan4-demonstration-guide.md](./docs/kan4-demonstration-guide.md), [docs/kan4-api-quick-reference.md](./docs/kan4-api-quick-reference.md), [docs/kan6-api-contract.md](./docs/kan6-api-contract.md), [docs/ci-cd-guide.md](./docs/ci-cd-guide.md), [docs/team-integration-checklist.md](./docs/team-integration-checklist.md), [docs/kan4-final-verification-report.md](./docs/kan4-final-verification-report.md), [docs/kan4-final-handover.md](./docs/kan4-final-handover.md), [docs/kan6-compatibility-repair.md](./docs/kan6-compatibility-repair.md), [docs/dependency-security-remediation.md](./docs/dependency-security-remediation.md), [docs/validation-freshness-review.md](./docs/validation-freshness-review.md)
+9. Run automated tests:
+   ```bash
+   npm test                 # Run mocked unit test suites (17 suites)
+   npm run test:coverage    # Run mocked unit tests with coverage
+   npm run test:integration # Run real PostgreSQL integration tests (9 suites) against .env.test
+   npm run test:newman      # Run Newman Postman collection against isolated .env.test server
    ```
 
-> **Note:** Phase 6 (`KAN-12`–`KAN-14`) is complete—Registration, JWT Authentication, RBAC middleware, and Admin-only Audit Log retrieval are active alongside the 26-table schema on `ali_dev`. See [docs/authentication-rbac.md](./docs/authentication-rbac.md) and [docs/team-handover.md](./docs/team-handover.md). User/Profile and Core CRUD APIs (`KAN-15`–`KAN-19`) will be implemented next. All medical data used in this project must be synthetic or de-identified.
+> **Note:** Phase 9B security & lifecycle hardening is complete locally (see [docs/phase9b-migration-guide.md](./docs/phase9b-migration-guide.md) and [docs/encounter-lifecycle-contract.md](./docs/encounter-lifecycle-contract.md)). **Security Notice:** `KAN-6` routes (`/payers/*`, `/validation/*`) remain unauthenticated (`F-03`); do not expose the combined backend publicly until secured. All medical data used in this project must be synthetic or de-identified.

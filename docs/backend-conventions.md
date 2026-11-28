@@ -1,8 +1,8 @@
 # MedCodeAI — Backend Conventions & Team Integration Guide
 
-> **Current Status (Phase 6 / KAN-12, KAN-13, KAN-14):** Express 5 skeleton, Prisma 6 + Neon PostgreSQL, 26-table schema, initial migration, synthetic seed data, **Audit Logging (`KAN-20`)**, **Registration (`KAN-12`)**, **JWT Login (`KAN-13`)**, **RBAC (`KAN-14`)**, and Admin-only `GET /api/v1/audit-logs` are complete. **User/Profile management (`KAN-15`–`KAN-16`) and Patients/Providers/Encounters CRUD (`KAN-17`–`KAN-19`) are NOT implemented yet.**
+> **Current Status (Phase 8 / KAN-15, KAN-16):** All 13 `KAN-4` tasks (`KAN-8`–`KAN-20`) are implemented: Express 5 skeleton, Prisma 6 + Neon PostgreSQL, 26-table schema, initial migration, synthetic seed, Audit Logging, Registration/JWT/RBAC, Patients/Providers/Encounters CRUD, and User/Role/Profile Management.
 
-See [authentication-rbac.md](./authentication-rbac.md), [team-handover.md](./team-handover.md), [audit-logging.md](./audit-logging.md), [database-schema.md](./database-schema.md), and [database-contracts.md](./database-contracts.md).
+See [user-management-api.md](./user-management-api.md), [medical-entities-api.md](./medical-entities-api.md), [authentication-rbac.md](./authentication-rbac.md), [team-handover.md](./team-handover.md), [audit-logging.md](./audit-logging.md), [database-schema.md](./database-schema.md), and [database-contracts.md](./database-contracts.md).
 
 ---
 

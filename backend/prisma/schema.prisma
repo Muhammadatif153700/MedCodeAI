@@ -114,6 +114,8 @@ model User {
   // Proposed engineering additions (KAN-10):
   isActive      Boolean               @default(true) @map("is_active")
   accountStatus AccountApprovalStatus @default(PENDING) @map("account_status")
+  // Phase 9B security hardening (F-02):
+  tokenVersion  Int                   @default(0) @map("token_version")
 
   role                Role?              @relation(fields: [roleId], references: [id], onDelete: Restrict)
   auditLogs           AuditLog[]
@@ -131,14 +133,14 @@ model User {
 
 model AuditLog {
   id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
+  userId    Int?     @map("user_id") // Nullable only for unauthenticated security events (e.g., unknown-email failed login)
   action    String
   entity    String
   entityId  Int?     @map("entity_id")
   ipAddress String?  @map("ip_address")
   timestamp DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user User? @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([userId])
   @@index([entity, entityId])

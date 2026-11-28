@@ -27,13 +27,14 @@ const { errorHandler } = require('../src/middleware/error.middleware');
 const { ROLES } = require('../src/constants/roles');
 
 function signTestToken(sub, options = {}) {
-  return jwt.sign({}, process.env.JWT_SECRET, {
+  const { tv = 0, ...jwtOpts } = options;
+  return jwt.sign(tv === undefined ? {} : { tv }, process.env.JWT_SECRET, {
     algorithm: 'HS256',
     subject: String(sub),
     expiresIn: '1h',
     issuer: 'medcodeai-api',
     audience: 'medcodeai-client',
-    ...options,
+    ...jwtOpts,
   });
 }
 
@@ -101,6 +102,30 @@ describe('JWT Authentication & RBAC Middleware (Phase 6 / KAN-13, KAN-14)', () =
     expect(
       (await request(rbacApp).get('/coder-only').set('Authorization', `Bearer ${badSub}`)).status
     ).toBe(401);
+
+    // Legacy token missing tv claim is rejected
+    const missingTv = signTestToken('4', { tv: undefined });
+    expect(
+      (await request(rbacApp).get('/coder-only').set('Authorization', `Bearer ${missingTv}`)).status
+    ).toBe(401);
+
+    // Mismatched tokenVersion is rejected with 401 TOKEN_REVOKED
+    const oldToken = signTestToken('4', { tv: 0 });
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 4,
+      name: 'Coder',
+      email: 'c@e.com',
+      roleId: 3,
+      isActive: true,
+      accountStatus: 'APPROVED',
+      tokenVersion: 1,
+      role: { id: 3, name: 'CODER' },
+    });
+    const revokedRes = await request(rbacApp)
+      .get('/coder-only')
+      .set('Authorization', `Bearer ${oldToken}`);
+    expect(revokedRes.status).toBe(401);
+    expect(revokedRes.body.error.code).toBe('TOKEN_REVOKED');
   });
 
   test('32, 33, 34 & 35. Rejects deleted/disabled user, reflects DB role changes, and fails closed on DB error', async () => {

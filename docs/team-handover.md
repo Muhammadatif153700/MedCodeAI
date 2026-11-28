@@ -1,6 +1,6 @@
 # MedCodeAI — Team Handover & Onboarding Guide (Milestone 1)
 
-> **Current Implementation Status:** Express 5 skeleton (`KAN-8`), Neon PostgreSQL + Prisma 6.19.3 (`KAN-9`), 26-table schema (`KAN-10`), initial SQL migration + PostgreSQL constraints, idempotent synthetic seed (`KAN-11`), **Shared Audit Logging (`KAN-20`)**, and **Registration, JWT Auth & RBAC (`KAN-12`–`KAN-14`)** are complete. **User/Profile/Patient/Provider/Encounter CRUD (`KAN-15`–`KAN-19`) are NOT implemented yet.**
+> **Current Implementation Status (Phase 9F Part 1):** All 13 `KAN-4` tasks (`KAN-8`–`KAN-20`), Phase 9B security & lifecycle hardening, Phase 9D real PostgreSQL integration tests, Phase 9E OpenAPI 3.0.3 + Swagger UI + Postman/Newman suite, and Phase 9F GitHub Actions CI (`.github/workflows/backend-ci.yml`) are complete locally. See [kan4-api-quick-reference.md](./kan4-api-quick-reference.md), [team-integration-checklist.md](./team-integration-checklist.md), and [phase9b-migration-guide.md](./phase9b-migration-guide.md). Note: `origin/dev` received new `KAN-6` commits (`1756fd4`, `d59e986`) awaiting coordinated merge review.
 
 ---
 

@@ -7,6 +7,7 @@ const AUTH_USER_SELECT = Object.freeze({
   roleId: true,
   isActive: true,
   accountStatus: true,
+  tokenVersion: true,
   createdAt: true,
   role: {
     select: {

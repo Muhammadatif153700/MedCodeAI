@@ -226,4 +226,51 @@ describe('Shared Audit Logging Module (Phase 5 / KAN-20)', () => {
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe('AUTHENTICATION_REQUIRED');
   });
+
+  test('17. Allows null userId only for USER_LOGIN_FAILED and rejects null userId for business mutations', async () => {
+    prisma.auditLog.create.mockResolvedValueOnce({
+      id: 301,
+      userId: null,
+      action: 'USER_LOGIN_FAILED',
+      entity: 'USER',
+      entityId: null,
+    });
+
+    const loginFail = await AuditService.log({
+      userId: null,
+      action: AUDIT_ACTIONS.USER_LOGIN_FAILED,
+      entity: AUDIT_ENTITIES.USER,
+      entityId: null,
+    });
+    expect(loginFail.userId).toBeNull();
+
+    await expect(
+      AuditService.log({
+        userId: null,
+        action: AUDIT_ACTIONS.PATIENT_CREATED,
+        entity: AUDIT_ENTITIES.PATIENT,
+        entityId: 1,
+      })
+    ).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_AUDIT_INPUT' });
+  });
+
+  test('18. Audit retrieval safely returns entries with null actors', async () => {
+    prisma.auditLog.findMany.mockResolvedValueOnce([
+      {
+        id: 301,
+        userId: null,
+        action: 'USER_LOGIN_FAILED',
+        entity: 'USER',
+        entityId: null,
+        ipAddress: '127.0.0.1',
+        timestamp: new Date('2026-11-27T10:00:00Z'),
+        user: null,
+      },
+    ]);
+    prisma.auditLog.count.mockResolvedValueOnce(1);
+
+    const result = await AuditService.list({ page: 1, limit: 10 });
+    expect(result.items[0].user).toBeNull();
+    expect(result.meta.total).toBe(1);
+  });
 });

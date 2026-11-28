@@ -1,4 +1,8 @@
-const { validateEnv, assertDatabaseConfigured } = require('../src/config/env');
+const {
+  validateEnv,
+  assertDatabaseConfigured,
+  assertJwtConfigured,
+} = require('../src/config/env');
 
 describe('Environment Configuration Validation (Phase 1 & Phase 2)', () => {
   test('Applies safe defaults when optional variables are omitted', () => {
@@ -73,6 +77,15 @@ describe('Environment Configuration Validation (Phase 1 & Phase 2)', () => {
   test('Fails clearly when DATABASE_URL is required but missing', () => {
     expect(() => assertDatabaseConfigured({ DATABASE_URL: '' })).toThrow(
       /DATABASE_URL is not set/
+    );
+  });
+
+  test('Fails early when JWT_SECRET is too short or missing for token operations', () => {
+    expect(() => validateEnv({ JWT_SECRET: 'too-short-secret' })).toThrow(
+      /JWT_SECRET must be at least 32 characters/
+    );
+    expect(() => assertJwtConfigured({ JWT_SECRET: '' })).toThrow(
+      /JWT_SECRET must be at least 32 characters/
     );
   });
 });
